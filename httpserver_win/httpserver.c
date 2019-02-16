@@ -8,7 +8,7 @@
 #include <io.h>
 
 /* #define TASK_INFO(task, size, used) printf("sizeof(void*):%d task:%p stack size:%d stack used:%d\n", (int)sizeof(void *), (task), (int)(size), (int)(used)) */
-#define TASK_ASSERT(expr)   do { if (!(expr)) {printf("ERROR: stack overflow!!\n"); abort();} } while(0)
+/* #define TASK_ASSERT(expr)   do { if (!(expr)) {printf("ERROR: stack overflow!!\n"); abort();} } while(0) */
 
 #include "../lib/atask.h"
 

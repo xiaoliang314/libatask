@@ -132,8 +132,6 @@ static void task_test(task_t *task, event_t *ev)
 
 int main()
 {
-    time_ms_t timeout;
-
     /*
      * Define a "test" task with a stack size of 128 bytes 
      * and an event priority of LOWER_GROUP_PRIORITY,

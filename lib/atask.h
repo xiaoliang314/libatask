@@ -1490,10 +1490,10 @@ static inline bool sem_give(sem_t *sem, event_t *event)
         {
             el_event_post(event_fifo_priority_pop(&sem->take_q));
         }
-		else
-		{
-			sem->cnt++;
-		}
+        else
+        {
+            sem->cnt++;
+        }
 
         if (event)
         {
@@ -1857,11 +1857,11 @@ static inline slab_t *slab_create(void *buff, uint32_t buf_size, uint32_t blk_si
     {
         /* calculate the available size */
         /* 计算可用的size */
-        size -= align_buff - (uint8_t *)buff + sizeof(*slab);
+        size -= (uint32_t)(align_buff - (uint8_t *)buff + sizeof(*slab));
 
         /* blk_size cpu-byte alignment */
         /* blk_size CPU字节对齐 */
-        slab->blk_size = ALIGN_UP(blk_size);
+        slab->blk_size = (uint32_t)ALIGN_UP(blk_size);
 
         /* calculate the number of total blocks */
         /* 重新计算总的块数 */
@@ -1871,7 +1871,7 @@ static inline slab_t *slab_create(void *buff, uint32_t buf_size, uint32_t blk_si
 
         /* record buff */
         /* 记录buff */
-        slab->buff = buff;
+        slab->buff = (uint8_t *)buff; /* for C++ */
 
         fifo_init(&slab->notify_q);
 
@@ -2014,7 +2014,7 @@ static inline bool slab_wait(slab_t *slab, slab_alloc_event_t *alloc_event)
 
 #ifndef TASK_INFO
 #define TASK_INFO(task, stack_size, stack_used)
-#endif
+#endif /* TASK_INFO */
 
 /*********************************************************
  *@type description:
@@ -2103,7 +2103,7 @@ typedef void (*task_asyn_routine_t)(struct task_s *, event_t *);
         (uint8_t *)(stack) + (stack_size),                                      \
         (stack),                                                                \
     },                                                                          \
-    {sizeof(struct task_cur_ctx_s), BP_INIT_VAL},                               \
+    {0, BP_INIT_VAL},                                                           \
     {0}                                                                         \
 }
 

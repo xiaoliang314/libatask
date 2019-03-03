@@ -81,7 +81,7 @@ libatask协程的函数原型为一个特殊的事件回调函数，即：`void 
         float b;
         event_t c;
         ...
-    } *vars = (struct vars *) = (struct vars *)task_asyn_vars_get(task, sizeof(*vars));
+    } *vars = (struct vars *)task_asyn_vars_get(task, sizeof(*vars));
 
     bpd_begin(1);
 

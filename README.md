@@ -1,5 +1,5 @@
-# libatsk
-**libatask是一个由纯C语言编写的基于事件循环由多事件驱动的高性能协程库。它将事件与协程进行了结合，还原了协程最本质的用途。libatask资源占用极低，仅需56B的RAM，以及不到1K的CODE，即使最苛刻单片机环境中也能完美运行。**
+# libatask
+**libatask(Asynchronous multitasking library)是一个由纯C语言编写的基于事件循环由多事件驱动的高性能协程库。它将事件与协程进行了结合，还原了协程最本质的用途。libatask资源占用极低，仅需56B的RAM，以及不到1K的CODE，即使最苛刻单片机环境中也能完美运行。**
 ### 事件与事件循环
 ---
 #### libatask是一个完全由事件驱动运行的框架，事件主要包含了下面4个元素:
@@ -81,7 +81,7 @@ libatask协程的函数原型为一个特殊的事件回调函数，即：`void 
         float b;
         event_t c;
         ...
-    } *vars = (struct vars *) = (struct vars *)task_asyn_vars_get(task, sizeof(*vars));
+    } *vars = (struct vars *)task_asyn_vars_get(task, sizeof(*vars));
 
     bpd_begin(1);
 
@@ -144,7 +144,7 @@ libatask自带了一个单向循环链表，该链表拥有以下特性：
 * 链表节点支持使用slist\_is\_del判断节点是否被删除（不在队列中）
 * 链表支持slist\_foreach\_系列宏进行遍历操作，并且使用slist\_foreach\_\*\*\_safe宏配合slist\_foreach\_safe\_\*\_next函数，可在递归中安全的插入删除当前链表的元素。
 
-<br/>[使用介绍](lib\slist.h)
+<br/>[使用介绍](lib/slist.h)
 
 ### FIFO与LIFO
 FIFO与LIFO是基于slist实现的先进先出与后进先出的队列。
@@ -156,7 +156,7 @@ libatask自带了一个定时器功能，API如下：
 * 使用timer\_init或者timer\_init\_inherit对定时器进行初始化
 * 使用el\_timer\_start\_*对启动定时器
 
-[示例](demo\main.c)
+[示例](demo/main.c)
 
 ## 信号量
 libatask实现了一个基于事件的信号量功能，使用sem_init初始化一个信号量，使用sem_give于sem_take增加或减少信号量。信号量一般配合协程使用。

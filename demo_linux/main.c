@@ -159,7 +159,7 @@ int main()
 
         /* calculate timeout */
         /* 计算超时 */
-        now = time_get_nclk();
+        now = time_nclk_get();
         timeout = due < now ? 0 : time_nclk_to_us(due - now);
         timeout = timeout > INT32_MAX ? INT32_MAX : timeout;
 

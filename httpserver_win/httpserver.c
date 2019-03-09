@@ -57,7 +57,7 @@ void iocp_atask_run(HANDLE iocp)
 
         /* calculate the timeout */
         /* 计算超时 */
-        now = time_get_nclk();
+        now = time_nclk_get();
         timeout = due < now ? 0 : time_nclk_to_us(due - now) / 1000;
         timeout = timeout > UINT32_MAX ? INFINITE : timeout;
 
@@ -739,21 +739,21 @@ void http_client_requst_task_handler(task_t *task, event_t *ev, SOCKET _cli_sock
                             http_ok_rsp_other,
                             sizeof(http_ok_rsp_other) - 1);
     }
-    else if (mystrcasecmp(str, ".htm") || mystrcasecmp(str, ".html"))
+    else if (mystrcasecmp(str, ".htm") == 0 || mystrcasecmp(str, ".html") == 0)
     {
         task_bpd_asyn_call(9, task, http_client_send,
                             vars->cli_sock,
                             http_ok_rsp_html,
                             sizeof(http_ok_rsp_html) - 1);
     }
-    else if (mystrcasecmp(str, ".js"))
+    else if (mystrcasecmp(str, ".js") == 0)
     {
         task_bpd_asyn_call(10, task, http_client_send,
                             vars->cli_sock,
                             http_ok_rsp_js,
                             sizeof(http_ok_rsp_js) - 1);
     }
-    else if (mystrcasecmp(str, ".css"))
+    else if (mystrcasecmp(str, ".css") == 0)
     {
         task_bpd_asyn_call(11, task, http_client_send,
                             vars->cli_sock,

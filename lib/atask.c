@@ -150,12 +150,8 @@ static inline void _el_event_schedule(void)
             dflt_el.ready_map &= ~(1 << ready_group);
         }
 
-        dflt_el.recursion_schedule++;
-
         e->is_ready = 0;
         e->callback(e->context, e);
-
-        dflt_el.recursion_schedule--;
     }
 }
 
@@ -198,10 +194,22 @@ static inline void _el_timer_schedule(void)
 
 /* Kernel scheduling once */
 /* 事件循环调度一次 */
-void el_schedule(void)
+time_nclk_t el_schedule(void)
 {
+    int max_schedule_events = EL_ONCE_SCHEDULE_MAX_EVENT_COUNT;
+
+    dflt_el.recursion_schedule++;
+
     _el_timer_schedule();
-    _el_event_schedule();
+
+    while (el_have_imm_event() && max_schedule_events--)
+    {
+        _el_event_schedule();
+    }
+
+    dflt_el.recursion_schedule++;
+
+    return el_have_imm_event() ? 0 : el_timer_recent_due_get();
 }
 
 

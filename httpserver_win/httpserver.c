@@ -48,30 +48,18 @@ void iocp_atask_run(HANDLE iocp)
     ULONG_PTR key;
     OVERLAPPED *pOverlapped;
     time_nclk_t due, now;
-    DWORD timeout;
+    time_ms_t timeout;
     struct iocp_evt_s *iocp_evt;
 
     while (1)
     {
-        /* Schedule at least once,
-           and continue to schedule if there is immediate processing */
-        /* 至少调度一次。并在有可立即处理的情况下继续调度 */
-        do
-        {
-            el_schedule();
-        } while (el_have_imm_event());
+        due = el_schedule();
 
-        /* Get the earliest expiration of the timer 
-           and calculate the timeout */
-        /* 取得定时器最早到期的时间，并计算超时 */
-        timeout = INFINITE;
-        if (el_have_timers())
-        {
-            due = el_timer_recent_due_get();
-            now = time_nclk_get();
-
-            timeout = (due > now) ? (time_nclk_to_us(due - now) / 1000) : 0;
-        }
+        /* calculate the timeout */
+        /* 计算超时 */
+        now = time_get_nclk();
+        timeout = due < now ? 0 : time_nclk_to_us(due - now) / 1000;
+        timeout = timeout > UINT32_MAX ? INFINITE : timeout;
 
         /* If IOCP exists, use IOCP timeout, 
            otherwise use sleep instead */
@@ -82,7 +70,7 @@ void iocp_atask_run(HANDLE iocp)
             /* 获取IOCP队列中已完成的事件，直到完全获取 */
             while (1)
             {
-                dwError = GetQueuedCompletionStatus(iocp, &numberOfBytes, &key, &pOverlapped, timeout) ? 0 : GetLastError();
+                dwError = GetQueuedCompletionStatus(iocp, &numberOfBytes, &key, &pOverlapped, (DWORD)timeout) ? 0 : GetLastError();
 
                 /* Post to the event loop if an IOCP event is get. */
                 /* 若获取到IOCP事件，则提交至事件循环 */
@@ -106,7 +94,7 @@ void iocp_atask_run(HANDLE iocp)
         }
         else
         {
-            Sleep(timeout);
+            Sleep((DWORD)timeout);
         }
     }
 }

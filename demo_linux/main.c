@@ -133,6 +133,7 @@ static void task_test(task_t *task, event_t *ev)
 
 int main()
 {
+    time_nclk_t due, now;
     time_us_t timeout;
 
     /*
@@ -154,12 +155,14 @@ int main()
     /* 运行atask内核 */
     while (1)
     {
-        el_schedule();
+        due = el_schedule();
 
-        if (!el_have_imm_event())
-        {
-            timeout = time_nclk_to_us(el_timer_get_recent_due() - time_get_nclk());
-            usleep(timeout);
-        }
+        /* calculate timeout */
+        /* 计算超时 */
+        now = time_get_nclk();
+        timeout = due < now ? 0 : time_nclk_to_us(due - now);
+        timeout = timeout > INT32_MAX ? INT32_MAX : timeout;
+
+        usleep((int)timeout);
     }
 }

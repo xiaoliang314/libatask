@@ -467,6 +467,12 @@ enum
 #define READY_GROUP_PRIORITY_MASK 0xC0
 #define READY_GROUP_PRIORITY_SHIFT 6
 
+/* The maximum number of events scheduled at once */
+/* 一次调度的最大事件个数 */
+#ifndef EL_ONCE_SCHEDULE_MAX_EVENT_COUNT
+#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   16
+#endif /* EL_ONCE_SCHEDULE_MAX_EVENT_COUNT */
+
 typedef struct el_s
 {
     /* event ready queue group */
@@ -771,7 +777,7 @@ bool el_event_reset_priority(event_t *e, uint8_t new_priority);
 *@简要：
 ***检查定时器、中断事件列表、并调度事件循环事件列表中优先级最高的事件
 **********************************************************/
-void el_schedule(void);
+time_nclk_t el_schedule(void);
 
 
 /*********************************************************
@@ -1412,10 +1418,13 @@ static inline bool sem_take(sem_t *sem, event_t *event)
 
     if (sem->cnt > 0)
     {
-        sem->cnt--;
         if (!fifo_is_empty(&sem->give_q))
         {
             el_event_post(event_fifo_priority_pop(&sem->give_q));
+        }
+        else
+        {
+            sem->cnt--;
         }
 
         if (event)
@@ -1713,17 +1722,19 @@ typedef struct slab_alloc_event_s
 /*********************************************
  *@brief：get the original buffer pointer of slab
  *
- *@param <slab> slab allocator
+ *@parameter:
+ *[slab]: slab allocator
  *
- *@return the original buff of slab
+ *@return: the original buff of slab
  *********************************************
  */
 /*********************************************
  *@简要：获取slab原始的buffer指针
  *
- *@参数 <slab> slab分配器
+ *@参数
+ *[slab] slab分配器
  *
- *@返回  slab的原始的buff
+ *@返回：slab的原始的buff
  *********************************************
  */
 static inline void *slab_buff_get(slab_t *slab)
@@ -1735,17 +1746,19 @@ static inline void *slab_buff_get(slab_t *slab)
 /*********************************************
  *@brief：get the total number of slab
  *
- *@param <slab> slab allocator
+ *@parameter: 
+ *[slab] slab allocator
  *
- *@return the total number of slab
+ *@return: the total number of slab
  *********************************************
  */
 /*********************************************
  *@简要：获取slab的总块数
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回  slab总块数
+ *@返回：slab总块数
  *********************************************
  */
 static inline uint32_t slab_blk_nums_get(slab_t *slab)
@@ -1757,17 +1770,19 @@ static inline uint32_t slab_blk_nums_get(slab_t *slab)
 /*********************************************
  *@brief: get the number of blocks used by slab
  *
- *@param <slab> slab allocator
+ *@parameter:
+ *[slab] slab allocator
  *
- *@return the number of blocks used by slab
+ *@return: the number of blocks used by slab
  *********************************************
  */
 /*********************************************
  *@简要：获取slab已使用的块数
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回 slab已使用的块数
+ *@返回：slab已使用的块数
  *********************************************
  */
 static inline uint32_t slab_used_get(slab_t *slab)
@@ -1779,17 +1794,19 @@ static inline uint32_t slab_used_get(slab_t *slab)
 /*********************************************
  *@brief: get the number of blocks unused by slab
  *
- *@param <slab> slab allocator
+ *@parameter:
+ *[slab] slab allocator
  *
- *@return the number of blocks unused by slab
+ *@return: the number of blocks unused by slab
  *********************************************
  */
 /*********************************************
  *@简要：获取slab未使用的块数
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回 slab未使用的块数
+ *@返回：slab未使用的块数
  *********************************************
  */
 static inline uint32_t slab_unused_get(slab_t *slab)
@@ -1800,17 +1817,19 @@ static inline uint32_t slab_unused_get(slab_t *slab)
 /*********************************************
  *@brief: get the size of the slab block
  *
- *@param <slab> slab allocator
+ *@parameter:
+ *[slab] slab allocator
  *
- *@return the size of the slab block
+ *@return: the size of the slab block
  *********************************************
  */
 /*********************************************
  *@简要：获取slab块的大小
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回 slab块的大小
+ *@返回：slab块的大小
  *********************************************
  */
 static inline uint32_t slab_blk_size_get(slab_t *slab)
@@ -1822,21 +1841,23 @@ static inline uint32_t slab_blk_size_get(slab_t *slab)
 /*********************************************
  *@brief: create a slab allocator using buffer initialization
  *
- *@param <buff> buffer
- *@param <blk_nums> total number of blocks
- *@param <blk_size> the size of each block
+ *@parameter:
+ *[buff] buffer
+ *[blk_nums] total number of blocks
+ *[blk_size] the size of each block
  *
- *@return slab allocator
+ *@return: slab allocator
  *********************************************
  */
 /*********************************************
  *@简要：使用buffer初始化创建一个slab分配器
  *
- *@参数 <buff>     buffer
- *@参数 <blk_nums> 总块数
- *@参数 <blk_size> 每块的大小
+ *@参数：
+ *[buff]     buffer
+ *[blk_nums] 总块数
+ *[blk_size] 每块的大小
  *
- *@返回  slab分配器
+ *@返回：slab分配器
  *********************************************
  */
 static inline slab_t *slab_create(void *buff, uint32_t buf_size, uint32_t blk_size)
@@ -1898,17 +1919,19 @@ static inline slab_t *slab_create(void *buff, uint32_t buf_size, uint32_t blk_si
 /*********************************************
  *@brief: the slab allocator allocate memory block
  *
- *@param <slab> slab allocator
+ *@param:
+ *[slab] slab allocator
  *
- *@return memory block
+ *@return: memory block
  *********************************************
  */
 /*********************************************
  *@简要：slab分配器分配内存块
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回 内存块
+ *@返回： 内存块
  *********************************************
  */
 static inline void *slab_alloc(slab_t *slab)
@@ -1931,19 +1954,21 @@ static inline void *slab_alloc(slab_t *slab)
 /*********************************************
  *@brief: the slab allocator free memory block
  *
- *@param <slab> slab allocator
- *@param <mem> slab block
+ *@parameter:
+ *[slab] slab allocator
+ *[mem] slab block
  *
- *@return N/A
+ *@return: N/A
  *********************************************
  */
 /*********************************************
  *@简要：slab分配器释放内存块
  *
- *@参数 <slab> slab分配器
- *@参数 <mem> 内存块
+ *@参数：
+ *[slab] slab分配器
+ *[mem] 内存块
  *
- *@返回 无
+ *@返回：无
  *********************************************
  */
 static inline void slab_free(slab_t *slab, void *mem)
@@ -1972,19 +1997,23 @@ static inline void slab_free(slab_t *slab, void *mem)
 /*********************************************
  *@brief: wait for the slab allocator to have a memory block available
  *
- *@param <slab> slab allocator
+ *@param:
+ *[slab] slab allocator
  *
- *@return <true> the slab allocator adds events successfully
- *@return <false> events are in other queues and cannot be enqueue
+ *@return:
+ *[true] the slab allocator adds events successfully
+ *[false] events are in other queues and cannot be enqueue
  *********************************************
  */
 /*********************************************
  *@简要：等待slab分配器有内存块可用
  *
- *@参数 <slab> slab分配器
+ *@参数：
+ *[slab] slab分配器
  *
- *@返回 <true> slab分配器添加事件成功
- *@返回 <false> 事件以处于其他队列中，不能入队
+ *@返回：
+ *[true] slab分配器添加事件成功
+ *[false] 事件以处于其他队列中，不能入队
  *********************************************
  */
 static inline bool slab_wait(slab_t *slab, slab_alloc_event_t *alloc_event)
@@ -2006,6 +2035,48 @@ static inline bool slab_wait(slab_t *slab, slab_alloc_event_t *alloc_event)
     }
 
     return false;
+}
+
+
+/*********************************************
+ *@brief: Cancel the event waiting for the slab allocator
+ *
+ *@contract: slab_wait_cancel can only cancel events waiting by slab_wait
+ * 
+ *@param:
+ *[slab] slab allocator
+ *[alloc_event] allocator event
+ *
+ *@return:
+ *[true] Cancel the slab allocator event successfully
+ *[false] Slab allocator event is not in the wait queue
+ *********************************************
+ */
+/*********************************************
+ *@简要：取消等待slab分配器的事件
+ *
+ *@约定：slab_wait_cancel只能取消由slab_wait等待的事件
+ * 
+ *@参数：
+ *[slab] slab分配器
+ *[alloc_event] 分配器事件
+ *
+ *@返回：
+ *[true] 取消slab分配器事件成功
+ *[false] slab分配器事件不处于等待队列中
+ *********************************************
+ */
+static inline bool slab_wait_cancel(slab_t *slab, slab_alloc_event_t *alloc_event)
+{
+    if (el_event_is_ready(&alloc_event->event))
+    {
+        slab_free(slab, alloc_event->mem_blk);
+        alloc_event->mem_blk = NULL;
+
+        return el_event_cancel(&alloc_event->event);
+    }
+
+    return fifo_del_node(&slab->notify_q, EVENT_NODE(&alloc_event->event));
 }
 
 #ifndef TASK_ASSERT

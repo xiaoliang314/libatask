@@ -105,7 +105,7 @@ void iocp_atask_run(HANDLE iocp)
 
 /* Http client request task stack size */
 /* Http客户端请求任务的栈大小 */
-#define HTTP_CLIENT_REQUST_TASK_STACK_SIZE  (256 + 2048)
+#define HTTP_CLIENT_REQUST_TASK_STACK_SIZE  (256 + 3072)
 
 /* Maximum number of Http clients */
 /* Http客户端最大数量 */
@@ -396,7 +396,7 @@ void http_client_requst_task_handler(task_t *task, event_t *ev, SOCKET _cli_sock
     {
         SOCKET cli_sock;
         struct sockaddr_in client_addr;
-        uint8_t buf[1024];
+        uint8_t buf[2048];
         char method[6];
         char url[400];
         char path[512];
@@ -739,21 +739,21 @@ void http_client_requst_task_handler(task_t *task, event_t *ev, SOCKET _cli_sock
                             http_ok_rsp_other,
                             sizeof(http_ok_rsp_other) - 1);
     }
-    else if (strstr(str, ".htm"))
+    else if (mystrcasecmp(str, ".htm") || mystrcasecmp(str, ".html"))
     {
         task_bpd_asyn_call(9, task, http_client_send,
                             vars->cli_sock,
                             http_ok_rsp_html,
                             sizeof(http_ok_rsp_html) - 1);
     }
-    else if (strstr(str, ".js"))
+    else if (mystrcasecmp(str, ".js"))
     {
         task_bpd_asyn_call(10, task, http_client_send,
                             vars->cli_sock,
                             http_ok_rsp_js,
                             sizeof(http_ok_rsp_js) - 1);
     }
-    else if (strstr(str, ".css"))
+    else if (mystrcasecmp(str, ".css"))
     {
         task_bpd_asyn_call(11, task, http_client_send,
                             vars->cli_sock,

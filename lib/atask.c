@@ -207,7 +207,7 @@ time_nclk_t el_schedule(void)
         _el_event_schedule();
     }
 
-    dflt_el.recursion_schedule++;
+    dflt_el.recursion_schedule--;
 
     return el_have_imm_event() ? 0 : el_timer_recent_due_get();
 }

@@ -12,6 +12,7 @@ const uint8_t priority_ready_bitmap[(1 << READY_GROUP_COUNT)] =
 /* 1 */3,    3,   3,   3,   3,   3,   3,   3
 };
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
 
 static inline void el_schedule_prepare_no_recursion(void)
 {
@@ -20,12 +21,14 @@ static inline void el_schedule_prepare_no_recursion(void)
         el_schedule_prepare();
     }
 }
+#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
 
 /* post event to event loop */
 /* 提交事件到事件循环 */
 bool el_event_post(event_t *e)
 {
     uint8_t ready_group = e->priority >> READY_GROUP_PRIORITY_SHIFT;
+    uint8_t el_old_have_event;
 
     /* The event node must be in an idle state */
     /* 事件节点必须处于空闲状态 */
@@ -39,11 +42,21 @@ bool el_event_post(event_t *e)
         /* 设置为就绪态 */
         e->is_ready = 1;
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+        el_old_have_event = el_have_imm_event();
+#endif
+
         /* Update event group ready map */
         /* 更新事件组就绪图 */
         dflt_el.ready_map |= (1 << ready_group);
 
-        el_schedule_prepare_no_recursion();
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+        if (!el_old_have_event)
+        {
+            el_schedule_prepare_no_recursion();
+        }
+#endif
+
         return true;
     }
 
@@ -198,7 +211,9 @@ time_nclk_t el_schedule(void)
 {
     int max_schedule_events = EL_ONCE_SCHEDULE_MAX_EVENT_COUNT;
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
     dflt_el.recursion_schedule++;
+#endif
 
     _el_timer_schedule();
 
@@ -207,7 +222,9 @@ time_nclk_t el_schedule(void)
         _el_event_schedule();
     }
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
     dflt_el.recursion_schedule--;
+#endif
 
     return el_have_imm_event() ? 0 : el_timer_recent_due_get();
 }
@@ -249,11 +266,16 @@ bool el_timer_start_due(timer_event_t *timer, time_nclk_t due)
 
      if (!dflt_el.timers_have || timer->due < dflt_el.due)
      {
-         dflt_el.due = timer->due;
-     }
-     dflt_el.timers_have = 1;
+        dflt_el.due = timer->due;
+        dflt_el.timers_have = 1;
 
-    el_schedule_prepare_no_recursion();
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+         if (!el_have_imm_event())
+         {
+             el_schedule_prepare_no_recursion();
+         }
+#endif
+     }
 
      return true;
 }
@@ -263,6 +285,8 @@ bool el_timer_start_due(timer_event_t *timer, time_nclk_t due)
 /* 停止定时器 */
 bool el_timer_stop(timer_event_t *timer)
 {
+    time_nclk_t save_el_due;
+
     if (slist_node_is_del(TIMER_NODE(timer)))
     {
         return false;
@@ -280,16 +304,13 @@ bool el_timer_stop(timer_event_t *timer)
         }
         else
         {
+            save_el_due = dflt_el.due;
             dflt_el.due = TIMER_OF_NODE(FIFO_TOP(&dflt_el.timers))->due;
         }
 
         return true;
     }
 
-    if (dflt_el.due)
-    {
-        el_schedule_prepare_no_recursion();
-    }
     return false;
 }
 

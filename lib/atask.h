@@ -17,6 +17,51 @@ extern "C" {
 #include "bp.h"
 #include "bp_stmt.h"
 
+/******************libatask configuration*****************/
+/******************libatask 配置**************************/
+
+/*********************************************************
+ *@description: 
+ ***When libatask has schedulable events, 
+ ***the outer framework should prepare the libatask scheduling process.
+ ***
+ ***If libatask is embedded in other frameworks, 
+ ***after the external framework submits events to libatask or runs a timer, 
+ ***the external framework should execute el_schedule to schedule libatask events 
+ ***at a suitable time in the future. These frameworks may be: GUI frameworks, etc.
+ ***
+ ***Scheduling preparation process is as follows:
+ ***1. provide and implement the el_schedule_prepare interface
+ ***2. el_schedule_prepare interface is implemented as follows:
+ ***  1) Determine whether there is an event in the event loop that can be dispatched immediately. 
+ ***     If it exists, the external framework should prepare the scheduling process immediately.
+ ***  2) If there is no event in the event loop, 
+ ***     check the most recent expiration time of the current event loop timer, 
+ ***     and schedule the scheduling process at the specified expiration time.
+ ***
+ ***If you use libatask as the outermost framework, 
+ ***you do not need to configure this feature. 
+ *********************************************************
+ *@说明：
+ ***当libatask有可调度事件时，需要外层框架准备libatask的调度过程。
+ ***
+ ***如果libatask被嵌入其他的框架之中，在外部框架在向libatask提交事件
+ ***或者运行定时器后，外部框架应该在未来的合适的时机执行el_schedule对
+ ***libatask的事件进行调度。这些框架如：GUI框架等
+ ***
+ ***调度的准备过程如下：
+ ***1、提供并实现el_schedule_prepare接口
+ ***2、el_schedule_prepare接口实现方式如下：
+ ***  1)判断事件循环中是否存在可被立即调度的事件，若存在则应该让
+ ***    外部框架立即安排一次调度过程
+ ***  2)若事件循环中不存在被调度的事件，则检查当前事件循环定时器
+ ***    的最近到期时间，在指定的到期时间安排一次调度过程
+ ***
+ ***若使用libatask作为最外部框架，则不需要配置此功能
+ *********************************************************/
+#define CONFIG_EL_HAVE_SCHEDULE_PREPARE
+
+
 /*********************************************************
  *@type description:
  *
@@ -770,12 +815,12 @@ bool el_event_reset_priority(event_t *e, uint8_t new_priority);
 
 /*********************************************************
 *@brief:
-***Check timers, interrupt event lists,
+***Check timers, 
 ***and schedule the highest priority events in the event loop event list
 *********************************************************/
 /*********************************************************
 *@简要：
-***检查定时器、中断事件列表、并调度事件循环事件列表中优先级最高的事件
+***检查定时器、并调度事件循环事件列表中优先级最高的事件
 **********************************************************/
 time_nclk_t el_schedule(void);
 
@@ -991,8 +1036,7 @@ static inline bool el_have_timers(void)
 *@brief:
 ***Check if there are any events in the event loop
 ***that can be scheduled immediately.
-***Will check the event loop interrupt event list
-***and the event loop event list for events
+***Will check the event loop event list for events
 *
 *@return value:
 *[true]: There are events that can be scheduled immediately
@@ -1001,7 +1045,7 @@ static inline bool el_have_timers(void)
 /*********************************************************
 *@简要：
 ***检查事件循环中是否有能被立即调度的事件
-***将检查事件循环中断事件列表与事件循环事件列表是否存在事件
+***将检查事件循环事件列表是否存在事件
 *
 *@返回值：
 *[true]：存在能被立即调度的事件
@@ -2500,6 +2544,8 @@ extern time_us_t time_nclk_to_us(time_nclk_t time_nclk);
 /* 将微秒转为时钟数 */
 extern time_nclk_t time_us_to_nclk(time_us_t time_us);
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+
 /*********************************************************
 *@brief:
 ***Scheduling the preparation interface,
@@ -2520,6 +2566,7 @@ extern time_nclk_t time_us_to_nclk(time_us_t time_us);
 **********************************************************/
 extern void el_schedule_prepare(void);
 
+#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
 
 #ifdef __cplusplus 
 }

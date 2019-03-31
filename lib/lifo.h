@@ -86,7 +86,7 @@ typedef struct lifo_s
  *
  *@返回：后进先出队列的链表
  *************************************************************/
-#define LIFO_OF_LIST(slist)      (container_of(lifo_t, list, slist))
+#define LIFO_OF_LIST(slist)      (container_of(slist, lifo_t, list))
 
 
 /*********************************************************

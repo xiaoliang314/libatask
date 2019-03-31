@@ -328,7 +328,7 @@ static inline void event_fifo_priority_push(fifo_t *epfifo, event_t *event)
  **********************************************************/
 static inline event_t *event_fifo_priority_pop(fifo_t *epfifo)
 {
-    return container_of(event_t, node, fifo_pop(epfifo));
+    return container_of(fifo_pop(epfifo), event_t, node);
 }
 
 
@@ -1759,9 +1759,9 @@ typedef struct slab_alloc_event_s
 
 #define SLAB_ALLOC_EVENT_NODE(slab_event)   EVENT_NODE(&(slab_event)->event)
 
-#define SLAB_ALLOC_EVENT_OF_EVENT(_event) container_of(slab_alloc_event_t, event, _event)
+#define SLAB_ALLOC_EVENT_OF_EVENT(_event) container_of(_event, slab_alloc_event_t, event)
 
-#define SLAB_ALLOC_EVENT_OF_NODE(node) container_of(slab_alloc_event_t, event, EVENT_OF_NODE(node))
+#define SLAB_ALLOC_EVENT_OF_NODE(node) container_of(EVENT_OF_NODE(node), slab_alloc_event_t, event)
 
 /*********************************************
  *@brief：get the original buffer pointer of slab

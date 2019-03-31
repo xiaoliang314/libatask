@@ -76,13 +76,13 @@ extern "C" {
 /* calculate the address of the external structure by type, member name, and member pointer */
 /* 通过类型、成员名、成员指针计算外部结构的地址 */
 #ifndef container_of
-#define container_of(type, member, mptr) ((type *)((const uint8_t *)(mptr) - (const uint8_t *)offset_of(type, member)))
+#define container_of(mptr, type, member) ((type *)((const uint8_t *)(mptr) - (const uint8_t *)offset_of(type, member)))
 #endif
 
 /* calculate the address of the external structure by external structure pointers, member names, and member pointers */
 /* 通过外部结构指针、成员名、成员指针计算外部结构的地址 */
 #ifndef pcontainer_of
-#define pcontainer_of(eptr, member, mptr) ((void *)((const uint8_t *)(mptr) - (const uint8_t *)poffset_of(eptr, member)))
+#define pcontainer_of(mptr, eptr, member) ((void *)((const uint8_t *)(mptr) - (const uint8_t *)poffset_of(eptr, member)))
 #endif
 
 /* unsigned 8, 16, 32, 64 bit integer maximum definition */

@@ -427,7 +427,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@返回值：成员指针所在的外层结构体指针
  **********************************************************/
-#define slist_entry(type, member, member_ptr) container_of(type, member, member_ptr)
+#define slist_entry(type, member, member_ptr) container_of(member_ptr, type, member)
 
 
 /*********************************************************
@@ -459,7 +459,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@返回值：成员指针所在的外层结构体指针
  **********************************************************/
-#define slist_pentry(eptr, member, member_ptr) pcontainer_of(eptr, member, member_ptr)
+#define slist_pentry(eptr, member, member_ptr) pcontainer_of(member_ptr, eptr, member)
 
 
 
@@ -776,9 +776,9 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***  }
  **********************************************************/
 #define slist_foreach_entry(slist, entry, member)                               \
-    for (*(void **)(&entry) = pcontainer_of((entry), member, (slist)->next);    \
+    for (*(void **)(&entry) = pcontainer_of((slist)->next, (entry), member);    \
         &(entry)->member != (slist);                                            \
-        *(void **)(&entry) = pcontainer_of((entry), member, (entry)->member.next))
+        *(void **)(&entry) = pcontainer_of((entry)->member.next, (entry), member))
 
 
 /*********************************************************
@@ -846,10 +846,10 @@ static inline bool slist_node_unref(slist_node_t *node)
  **********************************************************/
 #define slist_foreach_entry_safe(slist, entry, member, safe_node)               \
     for ((safe_node) = (slist)->next,                                           \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node));      \
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member);      \
          &(entry)->member != (slist);                                           \
          (safe_node) = (safe_node)->next,                                       \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node)))
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member))
 
 
 /*********************************************************
@@ -917,11 +917,11 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***  }
  **********************************************************/
 #define slist_foreach_entry_record_prev(slist, entry, member, prev_node)                \
-    for (*(void **)(&entry) = pcontainer_of((entry), member, (slist)->next),            \
+    for (*(void **)(&entry) = pcontainer_of((slist)->next, (entry), member),            \
          (prev_node) = (slist);                                                         \
          &(entry)->member != (slist);                                                   \
          (prev_node) = &(entry)->member,                                                \
-         *(void **)(&entry) = pcontainer_of((entry), member, (entry)->member.next))
+         *(void **)(&entry) = pcontainer_of((entry)->member.next, (entry), member))
 
 
 /*********************************************************
@@ -1000,11 +1000,11 @@ static inline bool slist_node_unref(slist_node_t *node)
 #define slist_foreach_entry_record_prev_safe(slist, entry, member, prev_node, safe_node)\
     for ((prev_node) = (slist),                                                         \
          (safe_node) = (slist)->next,                                                   \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node));              \
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member);              \
          &(entry)->member != (slist);                                                   \
          (prev_node) = (safe_node),                                                     \
          (safe_node) = (safe_node)->next,                                               \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node)))
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member))
 
 
 /* traversal from the "form",
@@ -1055,9 +1055,9 @@ static inline bool slist_node_unref(slist_node_t *node)
  * the same function as slist_foreach_entry */
 /* 从form_entry开始遍历，功能与slist_foreach_entry相同 */
 #define slist_foreach_from_entry(form_entry, slist, entry, member)              \
-    for (*(void **)(&entry) = pcontainer_of((entry), member, (form_entry)->member.next);   \
+    for (*(void **)(&entry) = pcontainer_of((form_entry)->member.next, (entry), member);   \
         &(entry)->member != (slist);                                            \
-        *(void **)(&entry) = pcontainer_of((entry), member, (entry)->member.next))
+        *(void **)(&entry) = pcontainer_of((entry)->member.next, (entry), member))
 
 
 /* traversal from the "form_entry",
@@ -1065,10 +1065,10 @@ static inline bool slist_node_unref(slist_node_t *node)
 /* 从form_entry开始遍历，功能与slist_foreach_entry_safe相同 */
 #define slist_foreach_form_entry_safe(form_entry, slist, entry, member, safe_node)          \
     for ((safe_node) = (form_entry)->member.next,                                           \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node));                  \
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member);                  \
          &(entry)->member != (slist);                                                       \
          (safe_node) = (safe_node)->next,                                                   \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node)))
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member))
 
 
 /* traversal from the "form_entry",
@@ -1076,10 +1076,10 @@ static inline bool slist_node_unref(slist_node_t *node)
 /* 从form_entry开始遍历，功能与slist_foreach_entry_record_prev相同 */
 #define slist_foreach_form_entry_record_prev(form_entry, slist, entry, member, prev_node)   \
     for ((prev_node) = &(form_entry)->member,                                               \
-         *(void **)(&entry) = pcontainer_of((entry), member, (form_entry)->member.next);    \
+         *(void **)(&entry) = pcontainer_of((form_entry)->member.next, (entry), member);    \
          &(entry)->member != (slist);                                                       \
          (prev_node) = &(entry)->member,                                                    \
-         *(void **)(&entry) = pcontainer_of((entry), member, (entry)->member.next))
+         *(void **)(&entry) = pcontainer_of((entry)->member.next, (entry), member))
 
 
 /* traversal from the "form_entry",
@@ -1088,11 +1088,11 @@ static inline bool slist_node_unref(slist_node_t *node)
 #define slist_foreach_form_entry_record_prev_safe(form_entry, slist, entry, member, prev_node, safe_node)\
     for ((prev_node) = &(form_entry)->member,                                           \
          (safe_node) = (form_entry)->member.next,                                       \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node));              \
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member);              \
          &(entry)->member != (slist);                                                   \
          (prev_node) = (safe_node),                                                     \
          (safe_node) = (safe_node)->next,                                               \
-         *(void **)(&entry) = pcontainer_of((entry), member, (safe_node)))
+         *(void **)(&entry) = pcontainer_of((safe_node), (entry), member))
 
 
 /*********************************************************

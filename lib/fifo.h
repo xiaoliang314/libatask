@@ -113,7 +113,7 @@ typedef struct fifo_s
  *
  *@返回：先进先出队列的链表
  *************************************************************/
-#define FIFO_OF_LIST(slist)      (container_of(fifo_t, list, slist))
+#define FIFO_OF_LIST(slist)      (container_of(slist, fifo_t, list))
 
 /************************************************************
  *@brief:
@@ -154,7 +154,7 @@ typedef struct fifo_s
  *
  *@返回：先进先出队列的链表
  *************************************************************/
-#define FIFO_OF_LIST(slist)      (container_of(fifo_t, list, slist))
+#define FIFO_OF_LIST(slist)      (container_of(slist, fifo_t, list))
 
 
 /*********************************************************

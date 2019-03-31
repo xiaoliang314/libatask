@@ -76,7 +76,7 @@ void iocp_atask_run(HANDLE iocp)
                 /* 若获取到IOCP事件，则提交至事件循环 */
                 if (pOverlapped != NULL)
                 {
-                    iocp_evt = container_of(struct iocp_evt_s, overlapped, pOverlapped);
+                    iocp_evt = container_of(pOverlapped, struct iocp_evt_s, overlapped);
 
                     iocp_evt->key = key;
                     iocp_evt->numberOfBytes = numberOfBytes;
@@ -830,7 +830,7 @@ client_close:
 
     /* free the task */
     /* 释放task */
-    slab_free(http_client_tasks_slab, container_of(struct http_task_with_stack_s, task, task));
+    slab_free(http_client_tasks_slab, container_of(task, struct http_task_with_stack_s, task));
 }
 
 /* Accept task handler */

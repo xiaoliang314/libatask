@@ -2168,6 +2168,7 @@ typedef struct task_s
         uint32_t u32;
         int32_t  s32;
     } ret_val;
+    lifo_t task_end_notify_q;
 } task_t;
 
 
@@ -2219,7 +2220,8 @@ typedef void (*task_asyn_routine_t)(struct task_s *, event_t *);
         (stack),                                                                \
     },                                                                          \
     {0, BP_INIT_VAL},                                                           \
-    {0}                                                                         \
+    {0},                                                                        \
+    LIFO_STATIC_INIT((task).task_end_notify_q)                                  \
 }
 
 
@@ -2323,6 +2325,7 @@ static inline void task_init(task_t *task, void *stack, size_t stack_size, uint8
 
     task->cur_ctx.stack_used = 0;
     task->cur_ctx.bp = BP_INIT_VAL;
+    lifo_init(&task->task_end_notify_q);
 }
 
 
@@ -2438,6 +2441,101 @@ static inline void task_asyn_return(task_t *task)
         /* Return to the caller */
         /* 返回调用者 */
         el_event_post(&task->event);
+    }
+    else
+    {
+        while (!lifo_is_empty(&task->task_end_notify_q))
+        {
+            el_event_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
+        }
+    }
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***Add a listen event for the end action of the coroutine task,
+ ***and trigger the listen event when the coroutine task ends.
+ *
+ *@contract: 
+ ***The task_asyn_return must be called at 
+ ***the end of the topmost coroutine (started by task_start)
+ *
+ *@parameter:
+ *[task]: task object
+ *[task_end_notify_ev]: Event for listening to coroutine exit
+ *
+ *@return:
+ *[true]: Add a listen event successfully
+ *[false]: Listening events are in the reference state or in the queue
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***为协程任务的结束动作添加一个监听事件，协程任务结束时将触发
+ ***监听的事件
+ *
+ *@约定：
+ ***1、最上层的协程(由task_start启动)结束时必须调用task_asyn_return
+ *
+ *@参数：
+ *[task]：任务对象
+ *[task_end_notify_ev]：用于监听协程退出的事件
+ *
+ *@返回值：
+ *[true]：添加监听事件成功
+ *[false]：监听事件处于引用状态或者队列中
+ **********************************************************/
+static inline bool task_end_wait(task_t *task, event_t *task_end_notify_ev)
+{
+    if (!slist_node_is_del(EVENT_NODE(task_end_notify_ev)))
+    {
+        return false;
+    }
+
+    lifo_push(&task->task_end_notify_q, EVENT_NODE(task_end_notify_ev));
+
+    return true;
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***Cancel the event listener for task_end_wait
+ *
+ *@parameter:
+ *[task]: task object
+ *[task_end_notify_ev]: The event used by task_end_wait
+ *
+ *@return:
+ *[true]: Cancel the listen event successfully
+ *[false]: The listened event is no in the listen queue
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***取消task_end_wait的事件监听
+ *
+ *@参数：
+ *[task]：任务对象
+ *[task_end_notify_ev]：传入task_end_wait的事件
+ *
+ *@返回值：
+ *[true]：取消监听事件成功
+ *[false]：监听的事件已经不在监听队列之中
+ **********************************************************/
+static inline bool task_end_wait_cancel(task_t *task, event_t *task_end_notify_ev)
+{
+    if (slist_node_is_del(EVENT_NODE(task_end_notify_ev)))
+    {
+        return false;
+    }
+
+    if (el_event_is_ready(task_end_notify_ev))
+    {
+        return el_event_cancel(task_end_notify_ev);
+    }
+    else
+    {
+        return lifo_del_node(&task->task_end_notify_q, EVENT_NODE(task_end_notify_ev));
     }
 }
 

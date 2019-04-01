@@ -116,6 +116,7 @@ void iocp_atask_run(HANDLE iocp)
 struct http_task_with_stack_s
 {
     task_t task;
+    event_t free_ev;
     uint8_t stack[HTTP_CLIENT_REQUST_TASK_STACK_SIZE];
 };
 
@@ -828,9 +829,16 @@ client_close:
     /* 协程结束 */
     bpd_end();
 
+    /* asynchronous return */
+    /* 异步返回 */
+    task_asyn_return(task);
+}
+
+static void on_task_end(void *task, event_t *ev)
+{
     /* free the task */
     /* 释放task */
-    slab_free(http_client_tasks_slab, container_of(task, struct http_task_with_stack_s, task));
+    slab_free(http_client_tasks_slab, task);
 }
 
 /* Accept task handler */
@@ -980,6 +988,11 @@ void http_accept_task_handler(task_t *task, event_t *ev)
                     task_with_stack->stack, 
                     sizeof(task_with_stack->stack),
                     EVENT_PRIORITY(&task->event));
+
+        /* The listening task ends and the used memory is released in on_task_end */
+        /* 监听任务结束，并在on_task_end释放使用的内存 */
+        event_init(&task_with_stack->free_ev, on_task_end, task_with_stack, MIDDLE_GROUP_PRIORITY);
+        task_end_wait(&task_with_stack->task, &task_with_stack->free_ev);
 
         /* Process the client Http request */
         /* 处理该客户端Http请求 */

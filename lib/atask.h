@@ -2442,13 +2442,43 @@ static inline void task_asyn_return(task_t *task)
         /* 返回调用者 */
         el_event_post(&task->event);
     }
+    /* task end */
+    /* 任务结束 */
     else
     {
+        task->stack.cur = task->stack.start;
+        task->ret_val.ptr = NULL;
+        task->cur_ctx.stack_used = 0;
+        task->cur_ctx.bp = BP_INIT_VAL;
+        EVENT_CALLBACK(&(task)->event) = (event_cb)NULL_CB;
+
         while (!lifo_is_empty(&task->task_end_notify_q))
         {
             el_event_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
         }
     }
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***Determine if the coroutine task is end
+ *
+ *@return:
+ *[true]: task is end
+ *[false]: task not end
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***判断协程任务是否结束
+ *
+ *@返回：
+ *[true]：任务已结束
+ *[false]: 任务未结束
+ **********************************************************/
+static inline bool task_is_end(task_t *task)
+{
+    return EVENT_CALLBACK(&(task)->event) == (event_cb)NULL_CB;
 }
 
 

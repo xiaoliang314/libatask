@@ -12,10 +12,10 @@
 * **事件的优先级** | 事件支持0-255的优先级，优先级高的事件进入事件循环之后，可以被优先处理。同等级的事件按先进先出顺序处理。
 
 #### libatask的事件使用顺序如下：
-1. 使用event_init函数或者event_init_inherit对刚创建的事件进行初始化，事件初始化只需要一次，后续可反复使用。
+1. 使用event_init函数或者event_init_inherit对刚创建的事件进行初始化（设置事件回调、上下文，优先级），事件初始化只需要一次，后续可反复使用。
 2. 对于已初始化的事件，可以使用el_event_post触发事件调用。
 3. 事件在被调用时，事件循环将释放对事件的所有引用，此时事件链表节点将为移除状态。
-4. 事件被加入到事件队列后，使用el_event_is_ready将返回true，使用el_event_cancel将事件从事件队列中取消。
+4. 可使用el_event_is_ready判断事件是否已经就绪（即将被调用），使用el_event_cancel将就绪的事件从事件循环中取消。
 
 #### libatask事件循环主要实现以下功能：
 1. 事件按优先级处理
@@ -23,8 +23,8 @@
 3. 实现了定时器功能(需要移植时间获取函数)
 
 #### libatask(事件循环)移植
-1. 移植获取时间和时间转换的4个函数
-2. 移植事件循环准备调度的函数(该函数用于通知外层用户框架，事件循环中存在可被调度的事件)
+1. 移植获取时间和时间转换共4个函数
+2. 移植事件循环调度准备的函数(该函数用于通知外层用户框架，事件循环中存在可被调度的事件)
 
 ## 协程
 ### 轻量级协程
@@ -32,11 +32,11 @@ libatask提供了一个极轻量级的协程，该协程甚至不依赖于libata
 协程的使用方式如下：
 1. 定义一个uint8_t \*bpd的一个指针变量，该指针指向用于保存协程断点位置的变量。如：`uint8_t *bpd = &user_data->bp;`
 
-2. 在协程代码块开始的位置使用bpd_begin(N)，结束的位置使用bpd_end()，一个函数只能有一个协程。 注：N是一个纯数字，从0到255，N表示了协程代码块中存在的断点个数。
+2. 在协程函数开始的位置使用bpd_begin(N)，结束的位置使用bpd_end()，一个函数只能有一个协程。 注：N是一个纯数字，从0到255，N表示了协程代码块中存在的断点个数。
 
-3. 使用bpd_yield(N) ret_val，对协程执行挂起操作。原函数则执行了return ret_val操作。N表示协程的第N个断点号(纯数字)，同时，协程内的断点号必须从0到bpd_begin中的N连续。bpd_yield记录当前返回的位置，记录值N保存在bpd指针指向的变量中。原函数在下次调用时将返回当前执行位置。
+3. 使用bpd_yield(N) ret_val，对协程执行挂起操作（实际执行的是return ret_val操作）。N表示协程的第N个断点号(纯数字)，同时，协程内的断点号必须从0到bpd_begin中的N连续。bpd_yield记录当前返回的位置，记录值N保存在bpd指针指向的变量中。协程函数在下次调用时将返回当前执行位置。
 
-4. 值得注意的是，原函数的局部变量，在执行bpd_yield之后消失，因为bpd_yield调用的是return，因此，需要使用的变量应该保存在原函数外部，并通过参数传递进来。
+4. 值得注意的是，协程函数的局部变量，在执行bpd_yield之后消失，因为bpd_yield最后调用的是return，因此，需要在yield之后使用的变量应该保存在协程函数外部，并通过参数传递进来。
 
 用法示例:
 ```
@@ -60,7 +60,7 @@ libatask提供了一个极轻量级的协程，该协程甚至不依赖于libata
 ### libatask的协程
 libatask在轻量级协程的基础上实现了一个在bpd_yield之后不丢失变量的方法。并且实现异步调用等功能。<br/>
 libatask协程的函数原型为一个特殊的事件回调函数，即：`void task_func(task_t *task, event_t *ev ...)`
-其中...表示用户自定义的参数，如下函数都是合法的libatask协程函数。
+其中...表示用户自定义的参数，如下函数都是合法的协程函数。
 ```
     void task1(task_t *task, event_t *ev, void *arg1, int arg2, float arg3);
     void task1(task_t *task, event_t *ev, void *arg1, struct tm arg2, int arg3, float arg4);
@@ -72,8 +72,10 @@ libatask协程的函数原型为一个特殊的事件回调函数，即：`void 
 
 3. 协程函数中使用TASK_BPD宏获取协程的断点变量。`uint8_t *bpd = TASK_BPD(task);`
 
-4. 从task的栈中分配当前协程需要在yield之后保存的变量。使用方式如下：
+4. 从task的栈中分配当前协程需要在yield之后保存的异步变量。使用方式如下：
 ```
+void task1(task_t *task, event_t *ev)
+{
     uint8_t *bpd = TASK_BPD(task);
     struct vars
     {
@@ -91,21 +93,40 @@ libatask协程的函数原型为一个特殊的事件回调函数，即：`void 
     printf("%d %f\n", vars->a, vars->b);
 
     bpd_end();
+    task_asyn_return(task);
+}
 ```
 
-5. 使用task_start(task, task_func, arg1, arg2, ...)启动一个协程。arg1以及之后的参数为协程函数原型event_t *ev之后的自定义的参数。注：协程第一调用时传递的参数仅在bpd_begin() 到 bpd_yield(1)之间有效，因此，如需后续使用这些参数，需要在bpd_yield(1)之前将其保存在task的栈中。
+5. 使用task_start(task, task_func, arg1, arg2, ...)启动一个协程。arg1以及之后的参数为协程函数event_t *ev之后的自定义的参数。注：协程第一调用时传递的参数仅在bpd_begin() 到 bpd_yield(1)之间有效，因此，如需后续使用这些参数，需要在bpd_yield(1)之前将其保存在task的栈中。
 
 [示例](demo/main.c)<br/>
 #### libatask事件继承
-在libatask的task_t中，存在一个task->event事件成员。task->event在使用task_start时已经初始化完成。因此，协程中的事件可以直接使用event_init_inherit(myevent, &task->event)，对myevent进行继承初始化。myevent事件触发后，将自动进入当前协程。
+在libatask的task_t中，存在一个task->event事件成员。task->event在协程运行中已经初始化完成（事件上下文为task，回调函数为当前协程）。因此，协程中的事件可以直接使用如：event_init_inherit(child_event, &task->event)，对child_event进行继承初始化（将继承task->event中的回调，上下文，优先级）。当child_event事件触发后，将自动回调当前协程。
 #### libatask多事件驱动
-libatask的协程挂起后的恢复是由事件触发的，并且支持多事件同时触发。示例如下：
+libatask的协程挂起后的恢复是由事件回调完成，并且支持多事件同时工作。示例如下：
 ```
+void task1(task_t *task, event_t *ev, type1 arg1, type2 arg2)
+{
+    uint8_t *bpd = TASK_BPD(task);
+    struct vars
+    {
+        type1 arg1;
+        type2 arg2;
+        timer_event_t timer;
+        io_event_t io_ev;
+    } *vars = (struct vars *)task_asyn_vars_get(task, sizeof(*vars));
+
     bpd_begin(1);
+
+    /* 若需要在yield之后继续使用arg1、arg2则应该在
+     * bpd_begin与bpd_yield(1)之间将传入的参数保存
+     * 到异步变量之中 */
+    vars->arg1 = arg1;
+    vars->arg2 = arg2;
 
     /* 事件使用继承的方式初始化，继承至协程的event */
     timer_init_inherit(&vars->timer, &task->event);
-    event_init_inherit(&vars->io_ev, &task->event);
+    event_init_inherit(&vars->io_ev.event, &task->event);
 
     /* 同时开启了I/O事件与Timer事件 */
     io_read(&vars->io_ev);
@@ -127,29 +148,31 @@ libatask的协程挂起后的恢复是由事件触发的，并且支持多事件
     }
 
     bpd_end();
+    task_asyn_return(task);
+}
 ```
 #### libatask异步调用
-libatask支持异步调用子协程，使用task_bpd_asyn_call(N, task, func, arg1, arg2, ...)即可，N为断点号。func为子协程函数，原型为void func(task_t *task, event_t *ev, type1 arg1, type2 arg2, ...)，子协程函数需要返回父协程时，需要使用task_asyn_return(task)即可。<br/>
+libatask支持异步调用子协程，使用task_bpd_asyn_call(N, task, func, arg1, arg2, ...)进行调用，N为断点号。func为子协程函数，原型为void func(task_t *task, event_t *ev, type1 arg1, type2 arg2, ...)。<br/>
+协程任务需要在bpd_end之后使用task_asyn_return返回父协程，当协程处于顶层协程(由task_start开启的协程)时task_asyn_return动作将结束任务并触发由task_end_wait等待的事件。<br/>
+**注：异步调用时必须确保当前协程没有正在等待的事件，否则等待的事件返回将破坏协程的栈。**<br/>
 [示例](demo/main.c)<br/>
-顶层协程可以选择使用task_asyn_return或不使用task_asyn_return，子协程应该使用task_asyn_return，否则无法返回父协程。
-<br/>**注：异步调用时必须确保当前协程没有正在等待的事件，否则等待的事件返回将破坏task的栈。**
 #### 极限递归
-由于libatask协程使用自定义的栈空间，因此，只要task的栈空间足够大，可以递归任意多的次数。libatask一次异步调用至少需要消耗12B-16B空间（没有异步变量），一个4G的栈空间可以递归调用2.6亿次。2M的栈空间最多也可递归13万次。
+由于libatask协程使用自定义的栈空间，因此，只要task的栈空间足够大，可以递归任意多的次数。libatask一次异步调用至少需要消耗12B-16B空间（没有异步变量），一个4G的栈空间最多可以递归调用2.6亿次。2M的栈空间最多也可递归调用13万次。
 
 ## 数据结构
 ### 单向循环链表
 libatask自带了一个单向循环链表，该链表拥有以下特性：
 * 链表与链表节点都由一个指针构成，空间占用sizeof(void *)
-* 链表节点API使用slist_del_next与slist_inset_next完成链表的删除与插入操作。
-* 链表节点支持使用slist\_is\_del判断节点是否被删除（不在队列中）
-* 链表支持slist\_foreach\_系列宏进行遍历操作，并且使用slist\_foreach\_\*\*\_safe宏配合slist\_foreach\_safe\_\*\_next函数，可在递归中安全的插入删除当前链表的元素。
+* 链表节点API使用slist\_node\_del\_next与slist\_node\_inset\_next完成链表的删除与插入操作。
+* 链表节点支持使用slist\_node\_is\_del判断节点是否被删除（不在队列中）
+* 链表支持slist\_foreach\_系列宏进行遍历操作，并且使用slist\_foreach\_\*\*\_safe宏配合slist\_foreach\_safe\_\*\_next函数，可在递归中安全的插入删除当前链表的元素。使用slist_foreach_record_prev_\*\*宏在遍历过程中记录当前节点的前驱节点，配合slist\_node\_del\_next与slist\_node\_insert\_next操纵当前节点。
 
 <br/>[使用介绍](lib/slist.h)
 
 ### FIFO与LIFO
-FIFO与LIFO是基于slist实现的先进先出与后进先出的队列。
+FIFO与LIFO是基于slist实现的先进先出与后进先出的队列。LIFO相对于FIFO，只使用了sizeof(void *)的内存且效率更高，而FIFO使用了2 * sizeof(void *)。当元素没有先进先出的顺序要求时，使用LIFO更好。
 ### FIFO、LIFO以及slist与事件的关系
-事件中的链表节点可以作为fifo或lifo中的一个节点。方便对事件进行队列操作。事件的节点可以使用EVENT_NODE(event)取得。
+libatask的事件包含了一个slist的链表节点，因此可以将事件作为fifo或lifo或者slist的元素进行队列操作。事件的节点可以使用EVENT_NODE(event)取得。
 
 ## 定时器
 libatask自带了一个定时器功能，API如下：
@@ -183,6 +206,6 @@ libatask实现了一个块式无碎片的内存池分配功能，可基于事件
 * 使用slab_create(buff, buff_size, blk_size)创建一个slab，返回创建好的内存池，buff为内存池的基地址，buff为内存池的大小，blk_size为内存池中元素块的大小。
 * 使用slab_alloc从slab中分配一个块，块的大小为blk_size，slab空间不足时将返回NULL
 * 使用slab_free释放一个块到slab中
-* 使用slab_wait等待内存池有可用的内存，内存可用时，将分配内存，并触发事件。slab内存等待的按事件的优先级进行内存分配。
+* 使用分配器事件调用slab_wait等待内存池中的内存可用，内存可用时，将分配内存，并触发事件。slab内存按分配器事件的优先级进行分配。
 
 [示例](httpserver_win/httpserver.c)

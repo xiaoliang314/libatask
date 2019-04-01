@@ -392,7 +392,7 @@
  *[bp_stmt_num]：记录的断点号
  *[bp_stmt]：用于记录当前断点位置的变量（一个字节）
  *************************************************************/
-#define bp_stmt_set(bp_num, bp)      ((bp) = (bp_num))
+#define bp_stmt_set(bp_num, bp)   ((int)((bp) = (bp_num)))
 
 
 /************************************************************
@@ -504,7 +504,7 @@
 
 /* exit BP_STMT_BEGIN-BP_STMT_END statement block,
  * the next call will be re-executed */
-/* 退出BP_STMT_BEGIN-BP_STMT_END语句块，下次调用将重新执行 */
+/* 退出BP_STMT_BEGIN-BP_STMT_END语句块，下次进入将重新执行 */
 #define bp_stmt_exit bp_stmt_break
 
 /************************************************************
@@ -512,13 +512,17 @@
  * omit bp_stmt parameter
  * usage：
  *
- *  unsigned char *bpd_stmt = &ctx->pd;
+ *  #define BP_STMT_DEFAULT_PREFIX demo
+ *  #define BP_STMT_DEFAULT vars->bp1
+ *  bpd_stmt_begin(1)
  *
  *  bpd_stmt_begin(1)
  *  {
  *      bpd_stmt_yield(1);
  *  }
  *  bpd_stmt_end();
+ *  #undef BP_STMT_DEFAULT
+ *  #undef BP_STMT_DEFAULT_PREFIX
  *
  ************************************************************/
 /************************************************************
@@ -528,9 +532,9 @@
  *  #define BP_STMT_DEFAULT_PREFIX demo
  *  #define BP_STMT_DEFAULT vars->bp1
  *  bpd_stmt_begin(1)
- *
+ *  {
  *      bpd_stmt_yield(1);
- *
+ *  }
  *  bpd_stmt_end();
  *  #undef BP_STMT_DEFAULT
  *  #undef BP_STMT_DEFAULT_PREFIX

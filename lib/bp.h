@@ -488,7 +488,7 @@
  *[bp_num]：记录的断点号
  *[bp]：用于记录当前断点位置的生命周期为全局的变量（一个字节）
  *************************************************************/
-#define bp_set(bp_num, bp)      ((bp) = (bp_num))
+#define bp_set(bp_num, bp)  ((int)((bp) = (bp_num)))
 
 
 /************************************************************
@@ -597,12 +597,12 @@
  * omit bp parameter
  * usage：
  *
- *  unsigned char *bpd = &ctx->pd;
+ *  unsigned char *bpd = &ctx->bp;
  *
  *  bpd_begin(1)
- *  {
- *      bpd_yield(1);
- *  }
+ *
+ *  bpd_yield(1);
+ *
  *  bpd_end();
  *
  ************************************************************/
@@ -610,12 +610,12 @@
  * 定义一个bpd指针，可使用BPD系列宏，省略bp参数
  * 例：
  *
- *  unsigned char *bpd = &ctx->pd;
+ *  unsigned char *bpd = &ctx->bp;
  *
  *  bpd_begin(1)
- *  {
- *      bpd_yield(1);
- *  }
+ *
+ *  bpd_yield(1);
+ *
  *  bpd_end();
  *
  ************************************************************/

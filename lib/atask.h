@@ -17,9 +17,6 @@ extern "C" {
 #include "bp.h"
 #include "bp_stmt.h"
 
-/******************libatask configuration*****************/
-/******************libatask 配置**************************/
-
 /*********************************************************
  *@description: 
  ***When libatask has schedulable events, 

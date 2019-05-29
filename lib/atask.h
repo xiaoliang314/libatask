@@ -2477,7 +2477,9 @@ static inline void task_asyn_return(task_t *task)
 
         while (!lifo_is_empty(&task->task_end_notify_q))
         {
-            el_event_sync_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
+            /* Asynchronous post events can avoid errors caused by freeing task in callbacks */
+            /* 异步提交事件可避免在回调中释放task而引起错误 */
+            el_event_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
         }
     }
 }

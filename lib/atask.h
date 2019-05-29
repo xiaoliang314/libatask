@@ -60,6 +60,26 @@ extern "C" {
 
 
 /*********************************************************
+ *@description: 
+ ***The maximum number of events that can be processed by el_schdule at a time.
+ ***This value is a trade-off between external events and 
+ ***local backlog events when the local backlog events and external events is high.
+ ***Taking 4 as an example, it means:
+ ***Process 4 local backlog events first 
+ ***and then check external events (ie el_schedule returns)
+ *********************************************************
+ *@说明：
+ ***一次el_schdule调用最多可处理的事件数量，
+ ***此数值是积压的未处理事件与外部事件都高负载情况下，
+ ***对外部事件与本地积压事件调度权衡比。
+ ***以4为例，则代表：
+ ***先处理4个本地积压事件再检查一次外部事件（即el_schedule返回）
+ ***
+ *********************************************************/
+#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   4
+
+
+/*********************************************************
  *@type description:
  *
  *[event_t]: event type, the basic unit of asynchronous scheduling in atask,
@@ -512,7 +532,7 @@ enum
 /* The maximum number of events scheduled at once */
 /* 一次调度的最大事件个数 */
 #ifndef EL_ONCE_SCHEDULE_MAX_EVENT_COUNT
-#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   16
+#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   4
 #endif /* EL_ONCE_SCHEDULE_MAX_EVENT_COUNT */
 
 typedef struct el_s
@@ -724,10 +744,6 @@ bool el_event_post(event_t *e);
 *
 *@parameter:
 *[e]: the event of be posted
-*
-*@return value:
-*[true]: Successfully posted
-*[false]: The event node is in the queue or reference state
 *********************************************************/
 /*********************************************************
 *@简要：
@@ -738,12 +754,12 @@ bool el_event_post(event_t *e);
 *
 *@参数：
 *[e]：被提交的事件
-*
-*@返回值：
-*[true]：提交成功
-*[false]：事件节点处于队列之中或者引用状态
 **********************************************************/
-bool el_event_sync_post(event_t *e);
+static inline void el_event_sync_post(event_t *e)
+{
+    e->callback(e->context, e);
+}
+
 
 
 /*********************************************************
@@ -2144,6 +2160,7 @@ static inline bool slab_wait_cancel(slab_t *slab, slab_alloc_event_t *alloc_even
 struct task_cur_ctx_s
 {
     uint32_t stack_used;
+    uint8_t yield_state;
     uint8_t bp;
 };
 
@@ -2322,6 +2339,7 @@ static inline void task_init(task_t *task, void *stack, size_t stack_size, uint8
 
     task->cur_ctx.stack_used = 0;
     task->cur_ctx.bp = BP_INIT_VAL;
+    task->cur_ctx.yield_state = 0;
     lifo_init(&task->task_end_notify_q);
 }
 
@@ -2424,8 +2442,12 @@ static inline void *task_asyn_vars_get(task_t *task, size_t vars_size)
  **********************************************************/
 static inline void task_asyn_return(task_t *task)
 {
+    uint8_t yield_state;
+
     if (task->stack.cur >= task->stack.start + TASK_STACK_CTX_SIZE)
     {
+        /* Record yielded state */
+        yield_state = task->cur_ctx.yield_state;
         /* Restore caller context information and event callbacks */
         /* 恢复调用者上下文信息及事件回调 */
         task->stack.cur -= TASK_STACK_CTX_SIZE;
@@ -2435,9 +2457,12 @@ static inline void task_asyn_return(task_t *task)
 
         TASK_ASSERT(task->stack.cur >= task->stack.start && task->stack.cur <= task->stack.end);
 
-        /* Return to the caller */
-        /* 返回调用者 */
-        el_event_post(&task->event);
+        if (yield_state)
+        {
+            /* Immediate return to the caller */
+            /* 立即返回调用者 */
+            el_event_sync_post(&task->event);
+        }
     }
     /* task end */
     /* 任务结束 */
@@ -2451,7 +2476,7 @@ static inline void task_asyn_return(task_t *task)
 
         while (!lifo_is_empty(&task->task_end_notify_q))
         {
-            el_event_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
+            el_event_sync_post(EVENT_OF_NODE(lifo_pop(&task->task_end_notify_q)));
         }
     }
 }
@@ -2602,6 +2627,7 @@ static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afun
     /* 初始化新的上下文信息和事件回调 */
     task->cur_ctx.bp = BP_INIT_VAL;
     task->cur_ctx.stack_used = 0;
+    task->cur_ctx.yield_state = 0;
     EVENT_CALLBACK(&task->event) = (event_cb)afunc;
 }
 
@@ -2640,9 +2666,15 @@ static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afun
 #define task_bpd_asyn_call(bp_num, task, afunc, ...)                \
     do {                                                            \
         bpd_set(bp_num);                                            \
-        task_asyn_call_prepare(task, (task_asyn_routine_t)afunc);   \
-        afunc(task, (event_t *)NULL, ##__VA_ARGS__);                \
-        return ;                                                    \
+        *(void **)&bpd = (void *)task->stack.cur;                   \
+        task_asyn_call_prepare((task), (task_asyn_routine_t)afunc); \
+        afunc((task), (event_t *)NULL, ##__VA_ARGS__);              \
+        if ((void *)bpd != (void *)task->stack.cur)                 \
+        {                                                           \
+            task->cur_ctx.yield_state = 1;                          \
+            return ;                                                \
+        }                                                           \
+        bpd = TASK_BPD(task);                                       \
         bpd_restore_point(bp_num):;                                 \
     } while (0)
 

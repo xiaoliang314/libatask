@@ -63,21 +63,6 @@ bool el_event_post(event_t *e)
     return false;
 }
 
-/* 同步调用这个事件 */
-bool el_event_sync_post(event_t *e)
-{
-    /* The event node must be in an idle state */
-    /* 事件节点必须处于空闲状态 */
-    if (slist_node_is_del(EVENT_NODE(e)))
-    {
-        e->callback(e->context, e);
-
-        return true;
-    }
-
-    return false;
-}
-
 /* Cancel the event in event loop */
 /* 取消事件循环中的事件 */
 bool el_event_cancel(event_t *e)
@@ -285,8 +270,6 @@ bool el_timer_start_due(timer_event_t *timer, time_nclk_t due)
 /* 停止定时器 */
 bool el_timer_stop(timer_event_t *timer)
 {
-    time_nclk_t save_el_due;
-
     if (slist_node_is_del(TIMER_NODE(timer)))
     {
         return false;
@@ -304,7 +287,6 @@ bool el_timer_stop(timer_event_t *timer)
         }
         else
         {
-            save_el_due = dflt_el.due;
             dflt_el.due = TIMER_OF_NODE(FIFO_TOP(&dflt_el.timers))->due;
         }
 

@@ -2233,7 +2233,7 @@ typedef void (*task_asyn_routine_t)(struct task_s *, event_t *);
         (uint8_t *)(stack) + (stack_size),                                      \
         (stack),                                                                \
     },                                                                          \
-    {0, BP_INIT_VAL},                                                           \
+    {0, 0, BP_INIT_VAL},                                                        \
     {0},                                                                        \
     LIFO_STATIC_INIT((task).task_end_notify_q)                                  \
 }
@@ -2447,6 +2447,7 @@ static inline void task_asyn_return(task_t *task)
     if (task->stack.cur >= task->stack.start + TASK_STACK_CTX_SIZE)
     {
         /* Record yielded state */
+        /* 记下是否yield过状态 */
         yield_state = task->cur_ctx.yield_state;
         /* Restore caller context information and event callbacks */
         /* 恢复调用者上下文信息及事件回调 */

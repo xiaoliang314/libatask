@@ -329,9 +329,6 @@ static inline slist_node_t* lifo_node_del_next(slist_node_t *node)
  *@parameter:
  *[lifo]: last-in-first-out queue
  *
- *@return type:
- *[bool]: boolean type
- *
  *@return value:
  *[true]: successfully removed this node from the queue
  *[false]: this node is not in this queue
@@ -356,19 +353,124 @@ static inline bool lifo_del_node(lifo_t *lifo, slist_node_t *node)
 }
 
 
-/* safely insert the next node of node in the foreach**safe series macro */
-/* 在foreach**safe系列宏中，安全插入node的下一个节点 */
-static inline void lifo_foreach_safe_insert_next(slist_node_t *node, slist_node_t *next_node, slist_node_t **safe_node)
+/*********************************************************
+ *@brief: 
+ ***safely insert the node to the LIFO queue
+ *
+ *@contract:
+ ***1. "node" is the node in the LIFO queue
+ ***2. next_node is the deleted node
+ *
+ *@parameter:
+ *[node]: the node of the operation
+ *[next_node]: the next node to insert
+ *[safe_node]: safe node used during traversal
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***从后进先出队列中安全插入节点
+ *
+ *@约定：
+ ***1、node为后进先出队列中的节点
+ ***2、next_node为已删除的节点
+ *
+ *@参数：
+ *[node]: 操作的节点
+ *[next_node]: 要插入的下一个节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ **********************************************************/
+static inline void lifo_node_insert_next_safe(slist_node_t *node, slist_node_t *next_node, slist_node_t **safe_node)
 {
-    slist_foreach_safe_insert_next(node, next_node, safe_node);
+    slist_node_insert_next_safe(node, next_node, safe_node);
 }
 
 
-/* safely delete the next node of node in the foreach**safe series macro */
-/* 在foreach**safe系列宏中，安全删除node的下一个节点 */
-static inline slist_node_t *lifo_foreach_safe_del_next(slist_node_t *node, slist_node_t **safe_node)
+/*********************************************************
+ *@brief: 
+ ***safely remove the next node from the LIFO queue
+ *
+ *@contract:
+ ***1. "node" is the node in the LIFO queue
+ ***2. "node" is not the fifo tail node
+ *
+ *@parameter:
+ *[node]: the node of the operation
+ *[safe_node]: safe node used during traversal
+ *
+ *@return value: the next node to be removed
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***从后进先出队列中安全移除下一个节点
+ *
+ *@约定：
+ ***1、node为后进先出队列中的节点
+ ***2、node不是尾节点
+ *
+ *@参数：
+ *[node]: 操作的节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ *
+ *@返回值: 被移除的下一个节点
+ **********************************************************/
+static inline slist_node_t *lifo_node_del_next_safe(slist_node_t *node, slist_node_t **safe_node)
 {
-    return slist_foreach_safe_del_next(node, safe_node);
+    return slist_node_del_next_safe(node, safe_node);
+}
+
+/*********************************************************
+ *@brief: 
+ ***safely remove the node from the LIFO queue
+ *
+ *@parameter:
+ *[lifo]: LIFO queue
+ *[del_node]: removed node
+ *[safe_node]: safe node used during traversal
+ *
+ *@return value:
+ *[true]: successfully removed this node from the queue
+ *[false]: this node is not in this queue
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***从后进先出队列中安全移除节点
+ *
+ *@参数：
+ *[lifo]：后进先出队列
+ *[del_node]: 被移除的节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ *
+ *@返回值:
+ *[true]: 成功从后进先出队列中移除节点
+ *[false]: 当前节点不在后进先出队列之中
+ **********************************************************/
+static inline bool lifo_del_node_safe(lifo_t *lifo, slist_node_t *del_node, slist_node_t **safe_node)
+{
+    return slist_del_node_safe(LIFO_LIST(lifo), del_node, safe_node);
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***transfer all nodes of the LIFO queue to the head of the receive queue,
+ ***after the transfer is completed, the original LIFO queue becomes empty
+ *
+ *@parameter:
+ *[lifo]: LIFO queue that was transferred
+ *[recv_lifo]: LIFO queue for receiving nodes
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***将后进先出队列所有节点转移至接收队列的头部，
+ ***转移完成后，原后进先出队列变成空
+ *
+ *@参数：
+ *[lifo]：被转移的后进先出队列
+ *[recv_lifo]: 接收节点的后进先出队列
+ **********************************************************/
+static inline void lifo_nodes_transfer_to(lifo_t *lifo, lifo_t *recv_lifo)
+{
+    slist_nodes_transfer_to(LIFO_LIST(lifo), LIFO_LIST(recv_lifo));
 }
 
 #endif /* __LIFO_H__ */

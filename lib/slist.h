@@ -518,8 +518,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@contract: 
  ***1. "slist" is not null pointer
- ***2. safely delete of linked list nodes requires slist_foreach_safe_del_next
- ***3. safely insert of linked list nodes requires slist_foreach_safe_insert_next
+ ***2. safely delete of linked list nodes requires slist_node_del_next_safe
+ ***3. safely insert of linked list nodes requires slist_node_insert_next_safe
  ***4. in the case of safe insert and delete operations, you can continue traversing.
  ***5. don't do anything with safe_node
  *
@@ -543,8 +543,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@约定：
  ***1、slist不能为空指针
- ***2、链表节点的安全删除操作需使用slist_foreach_safe_del_next
- ***3、链表节点的安全插入操作需使用slist_foreach_safe_insert_next
+ ***2、链表节点的安全删除操作需使用slist_node_del_next_safe
+ ***3、链表节点的安全插入操作需使用slist_node_insert_next_safe
  ***4、在使用安全插入与删除操作的情况下，则可以继续遍历。
  ***5、不可对safe_node做任何处理
  *
@@ -648,8 +648,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@contract: 
  ***1. "slist" is not null pointer
- ***2. safely delete of linked list nodes requires slist_foreach_safe_del_next
- ***3. safely insert of linked list nodes requires slist_foreach_safe_insert_next
+ ***2. safely delete of linked list nodes requires slist_node_del_next_safe
+ ***3. safely insert of linked list nodes requires slist_node_insert_next_safe
  ***4. in the case of safe insert and delete operations, you can continue traversing.
  ***5. don't do anything with safe_node
  *
@@ -669,7 +669,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***      if (...) //certain conditions
  ***      {
  ***          //safely remove "node" in traversal by "prev_node"
- ***          slist_foreach_safe_del_next(prev_node, &safe_node);
+ ***          slist_node_del_next_safe(prev_node, &safe_node);
  ***
  ***          //continue to traverse after performing delete and insert
  ***          //break;
@@ -683,8 +683,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@约定：
  ***1、slist不能为空指针
- ***2、链表节点的安全删除操作需使用slist_foreach_safe_del_next
- ***3、链表节点的安全插入操作需使用slist_foreach_safe_insert_next
+ ***2、链表节点的安全删除操作需使用slist_node_del_next_safe
+ ***3、链表节点的安全插入操作需使用slist_node_insert_next_safe
  ***4、在使用安全插入与删除操作的情况下，则可以继续遍历。
  ***5、不可对safe_node做任何处理
  *
@@ -704,7 +704,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***      if (...) //某些条件
  ***      {
  ***          //通过prev_node在遍历中安全移除node
- ***          slist_foreach_safe_del_next(prev_node, &safe_node);
+ ***          slist_node_del_next_safe(prev_node, &safe_node);
  ***
  ***          //在插入与删除之后，可以继续遍历
  ***          //break;
@@ -788,8 +788,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@contract: 
  ***1. "slist" is not null pointer
- ***2. safely delete of linked list nodes requires slist_foreach_safe_del_next
- ***3. safely insert of linked list nodes requires slist_foreach_safe_insert_next
+ ***2. safely delete of linked list nodes requires slist_node_del_next_safe
+ ***3. safely insert of linked list nodes requires slist_node_insert_next_safe
  ***4. in the case of safe insert and delete operations, you can continue traversing.
  ***5. don't do anything with safe_node
  *
@@ -819,8 +819,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@约定：
  ***1、slist不能为空指针
- ***2、链表节点的安全删除操作需使用slist_foreach_safe_del_next
- ***3、链表节点的安全插入操作需使用slist_foreach_safe_insert_next
+ ***2、链表节点的安全删除操作需使用slist_node_del_next_safe
+ ***3、链表节点的安全插入操作需使用slist_node_insert_next_safe
  ***4、在使用安全插入与删除操作的情况下，则可以继续遍历。
  ***5、不可对safe_node做任何处理
  *
@@ -931,8 +931,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@contract: 
  ***1. "slist" is not null pointer
- ***2. safely delete of linked list nodes requires slist_foreach_safe_del_next
- ***3. safely insert of linked list nodes requires slist_foreach_safe_insert_next
+ ***2. safely delete of linked list nodes requires slist_node_del_next_safe
+ ***3. safely insert of linked list nodes requires slist_node_insert_next_safe
  ***4. in the case of safe insert and delete operations, you can continue traversing.
  ***5. don't do anything with safe_node
  *
@@ -954,7 +954,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***      if (student->mistake_count >= 3)
  ***      {
  ***          //remove the current node by prev_node
- ***          slist_foreach_safe_del_next(prev_node, &safe_node);
+ ***          slist_node_del_next_safe(prev_node, &safe_node);
  ***          
  ***          //after inserting or deleting, you can continue to traverse
  ***          //break;
@@ -967,8 +967,8 @@ static inline bool slist_node_unref(slist_node_t *node)
  *
  *@约定：
  ***1、slist不能为空指针
- ***2、链表节点的安全删除操作需使用slist_foreach_safe_del_next
- ***3、链表节点的安全插入操作需使用slist_foreach_safe_insert_next
+ ***2、链表节点的安全删除操作需使用slist_node_del_next_safe
+ ***3、链表节点的安全插入操作需使用slist_node_insert_next_safe
  ***4、在使用安全插入与删除操作的情况下，则可以继续遍历。
  ***5、不可对safe_node做任何处理
  *
@@ -990,7 +990,7 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***      if (student->mistake_count >= 3)
  ***      {
  ***          //通过prev_node移除当前节点
- ***          slist_foreach_safe_del_next(prev_node, &safe_node);
+ ***          slist_node_del_next_safe(prev_node, &safe_node);
  ***
  ***          //在插入或删除后，可以继续遍历
  ***          //break;
@@ -1101,11 +1101,6 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***the linked list node in the macro of the slist_foreach_**safe series,
  ***and keep the linked list continue traversal.
  *
- *@contract: 
- ***1. "prev_node" and "safe_node" are not null pointers
- ***2. "prev_node" is the node of be traversed linked list
- ***3. "safe_node" is the "safe_node" of be traversed linked list
- *
  *@parameter:
  *[prev_node]: previous node of the be deleted node
  *[safe_node]: "safe_node" is "safe_node" of  the linked list being traversed
@@ -1120,18 +1115,13 @@ static inline bool slist_node_unref(slist_node_t *node)
  ***该函数可以在slist_foreach_**safe系列的宏中，对链表节点执行安全删除操作，
  ***并保持链表正常遍历
  *
- *@约定：
- ***1、prev_node和safe_node不是空指针
- ***2、prev_node为被遍历链表的节点
- ***3、safe_node为被遍历链表的safe_node
- *
  *@参数：
  *[prev_node]：被删除节点的前一个节点
  *[safe_node]：安全遍历时使用的safe_node
  *
  *@返回：被删除的节点
  **********************************************************/
-static inline slist_node_t* slist_foreach_safe_del_next(slist_node_t *prev_node, slist_node_t **safe_node)
+static inline slist_node_t* slist_node_del_next_safe(slist_node_t *prev_node, slist_node_t **safe_node)
 {
     slist_node_t *node = prev_node->next;
 
@@ -1153,12 +1143,6 @@ static inline slist_node_t* slist_foreach_safe_del_next(slist_node_t *prev_node,
  ***the linked list node in the macro of the slist_foreach_**safe series,
  ***and keep the linked list continue traversal.
  *
- *@contract: 
- ***1. "prev_node", "safe_node" and "node" are not null pointers
- ***2. "prev_node" is the node of be traversed linked list
- ***3. the "node" is node of deleted
- ***4. "safe_node" is the "safe_node" of be traversed linked list
- *
  *@parameter:
  *[prev_node]: previous node of the be insert node
  *[node]: the node to be inserted
@@ -1169,18 +1153,12 @@ static inline slist_node_t* slist_foreach_safe_del_next(slist_node_t *prev_node,
  ***该函数可以在slist_foreach_**safe系列的宏中，对链表节点执行安全删除操作，
  ***并保持链表正常遍历
  *
- *@约定：
- ***1、prev_node和safe_node不是空指针
- ***2、prev_node为被遍历链表的节点
- ***3、node为已删除的节点
- ***4、safe_node为被遍历链表的safe_node
- *
  *@参数：
- *[prev_node]：被删除节点的前一个节点
+ *[prev_node]：插入节点的前一个节点
  *[node]：需要插入的节点
  *[safe_node]：安全遍历时使用的safe_node
  **********************************************************/
-static inline void slist_foreach_safe_insert_next(slist_node_t *prev_node,
+static inline void slist_node_insert_next_safe(slist_node_t *prev_node,
                                                   slist_node_t *node,
                                                   slist_node_t **safe_node)
 {
@@ -1194,8 +1172,6 @@ static inline void slist_foreach_safe_insert_next(slist_node_t *prev_node,
 }
 
 
-/* delete the "node" node in the single linked list */
-/* 删除单链表中的node节点 */
 /*********************************************************
  *@brief: 
  ***delete the "node" node in single circular linked list
@@ -1241,6 +1217,84 @@ static inline bool slist_del_node(slist_t *slist, slist_node_t *node)
     }
 
     return false;
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***safely delete the node in the linked list
+ *
+ *@parameter:
+ *[slist]: single circular linked list
+ *[node]: node of be deleted
+ *[safe_node]: safe node used during traversal
+ *
+ *@return value:
+ *[true]: successfully removed node from "slist"
+ *[false]: "node" is not in "slist"
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***安全删除链表中的节点
+ *
+ *@参数：
+ *[slist]：单循环链表
+ *[node]：要删除的节点
+ *[safe_node]: 遍历时使用的安全节点
+ *
+ *@返回值：
+ *[true]：成功从slist中删除节点
+ *[false]：node不在slist之中
+ **********************************************************/
+static inline bool slist_del_node_safe(slist_t *slist, slist_node_t *node, slist_node_t **safe_node)
+{
+    slist_node_t *prev_node;
+    slist_node_t *find_node;
+
+    slist_foreach_record_prev(slist, find_node, prev_node)
+    {
+        if (find_node == node)
+        {
+            slist_node_del_next_safe(prev_node, safe_node);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***transfer all nodes of the slist queue to the head of the receive slist,
+ ***after the transfer is completed, the original slist becomes empty
+ *
+ *@parameter:
+ *[slist]: slist that was transferred
+ *[recv_slist]: slist for receiving nodes
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***将链表所有节点转移至接收链表的头部，
+ ***转移完成后，原链表变成空
+ *
+ *@参数：
+ *[slist]：被转移的链表
+ *[recv_slist]: 接收节点的链表
+ **********************************************************/
+static inline void slist_nodes_transfer_to(slist_t *slist, slist_t *recv_slist)
+{
+    slist_node_t *tail, *node;
+
+    if (!slist_is_empty(slist))
+    {
+        slist_foreach_record_prev(slist, node, tail);
+
+        tail->next = recv_slist->next;
+        recv_slist->next = tail;
+
+        slist_init(slist);
+    }
 }
 
 #endif /* __SLIST_H__ */

@@ -426,7 +426,7 @@ static inline bool event_fifo_reset_priority(fifo_t *epfifo, event_t *event, uin
         /* 事件被找到，设置flags并移除 */
         if (find_event == event)
         {
-            fifo_foreach_safe_del_next(epfifo, prev_node, &safe_node);
+            fifo_node_del_next_safe(epfifo, prev_node, &safe_node);
 
             is_find_event = 1;
         }
@@ -2473,6 +2473,7 @@ static inline void task_asyn_return(task_t *task)
         task->ret_val.ptr = NULL;
         task->cur_ctx.stack_used = 0;
         task->cur_ctx.bp = BP_INIT_VAL;
+        task->cur_ctx.yield_state = 0;
         EVENT_CALLBACK(&(task)->event) = (event_cb)NULL_CB;
 
         while (!lifo_is_empty(&task->task_end_notify_q))

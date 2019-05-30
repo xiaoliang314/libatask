@@ -440,11 +440,9 @@ static inline slist_node_t* fifo_node_del_next(fifo_t *fifo, slist_node_t *node)
  *@brief: 
  ***remove node from first-in-first-out queue
  *
- *@contract: 
- ***1. fifo and node is not null pointer
- *
  *@parameter:
  *[fifo]: first-in-first-out queue
+ *[node]: removed node
  *
  *@return value:
  *[true]: successfully removed this node from the queue
@@ -454,11 +452,9 @@ static inline slist_node_t* fifo_node_del_next(fifo_t *fifo, slist_node_t *node)
  *@简要：
  ***从先进先出队列中移除节点
  *
- *@约定：
- ***1. fifo与node不是空指针
- *
  *@参数：
  *[fifo]：先进先出队列
+ *[node]: 被移除的节点
  *
  *@返回值：
  *[true]：成功从队列中移除这个节点
@@ -494,11 +490,37 @@ static inline bool fifo_del_node(fifo_t *fifo, slist_node_t *node)
 }
 
 
-/* safely insert the next node of node in the foreach**safe series macro */
-/* 在foreach**safe系列宏中，安全插入node的下一个节点 */
-static inline void fifo_foreach_safe_insert_next(fifo_t *fifo, slist_node_t *node, slist_node_t *next_node, slist_node_t **safe_node)
+/*********************************************************
+ *@brief: 
+ ***safely insert the node to the FIFO queue
+ *
+ *@contract:
+ ***1. "node" is the node in the FIFO queue
+ ***2. next_node is the deleted node
+ *
+ *@parameter:
+ *[fifo]: FIFO queue
+ *[node]: the node of the operation
+ *[next_node]: the next node to insert
+ *[safe_node]: safe node used during traversal
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***安全地将节点插入到先进先出队列
+ *
+ *@约定：
+ ***1、node为先进先出队列中的节点
+ ***2、next_node为已删除的节点
+ *
+ *@参数：
+ *[fifo]：先进先出队列
+ *[node]: 操作的节点
+ *[next_node]: 要插入的下一个节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ **********************************************************/
+static inline void fifo_node_insert_next_safe(fifo_t *fifo, slist_node_t *node, slist_node_t *next_node, slist_node_t **safe_node)
 {
-    slist_foreach_safe_insert_next(node, next_node, safe_node);
+    slist_node_insert_next_safe(node, next_node, safe_node);
     if (node == fifo->tail)
     {
         fifo->tail = next_node;
@@ -506,19 +528,127 @@ static inline void fifo_foreach_safe_insert_next(fifo_t *fifo, slist_node_t *nod
 }
 
 
-/* safely delete the next node of node in the foreach**safe series macro */
-/* 在foreach**safe系列宏中，安全删除node的下一个节点 */
-static inline slist_node_t *fifo_foreach_safe_del_next(fifo_t *fifo, slist_node_t *node, slist_node_t **safe_node)
+/*********************************************************
+ *@brief: 
+ ***safely remove the next node from the FIFO queue
+ *
+ *@contract:
+ ***1. "node" is the node in the FIFO queue
+ ***2. "node" is not the fifo tail node
+ *
+ *@parameter:
+ *[fifo]: FIFO queue
+ *[node]: the node of the operation
+ *[safe_node]: safe node used during traversal
+ *
+ *@return value: the next node to be removed
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***从先进先出队列中安全移除下一个节点
+ *
+ *@约定：
+ ***1、node为先进先出队列中的节点
+ ***2、node不是尾节点
+ *
+ *@参数：
+ *[fifo]：先进先出队列
+ *[node]: 操作的节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ *
+ *@返回值: 被移除的下一个节点
+ **********************************************************/
+static inline slist_node_t *fifo_node_del_next_safe(fifo_t *fifo, slist_node_t *node, slist_node_t **safe_node)
 {
     slist_node_t *next_node;
 
-    next_node = slist_foreach_safe_del_next(node, safe_node);
+    next_node = slist_node_del_next_safe(node, safe_node);
     if (next_node == fifo->tail)
     {
         fifo->tail = node;
     }
 
     return next_node;
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***safely remove the node from the FIFO queue
+ *
+ *@parameter:
+ *[fifo]: FIFO queue
+ *[node]: removed node
+ *[safe_node]: safe node used during traversal
+ *
+ *@return value:
+ *[true]: successfully removed this node from the queue
+ *[false]: this node is not in this queue
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***从先进先出队列中安全移除节点
+ *
+ *@参数：
+ *[fifo]：先进先出队列
+ *[node]: 被移除的节点
+ *[safe_node]: 遍历过程中使用的安全节点
+ *
+ *@返回值:
+ *[true]: 成功从先进先出队列中移除节点
+ *[false]: 当前节点不在先进先出队列之中
+ **********************************************************/
+static inline bool fifo_del_node_safe(fifo_t *fifo, slist_node_t *node, slist_node_t **safe_node)
+{
+    slist_node_t *find_node, *prev_node;
+
+    slist_foreach_record_prev(FIFO_LIST(fifo), find_node, prev_node)
+    {
+        if (find_node == node)
+        {
+            slist_node_del_next_safe(prev_node, safe_node);
+
+            if (node == fifo->tail)
+            {
+                fifo->tail = prev_node;
+            }
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+/*********************************************************
+ *@brief: 
+ ***transfer all nodes of the FIFO queue to the end of the receive queue,
+ ***after the transfer is completed, the original FIFO queue becomes empty
+ *
+ *@parameter:
+ *[fifo]: FIFO queue that was transferred
+ *[recv_fifo]: FIFO queue for receiving nodes
+ *********************************************************/
+/*********************************************************
+ *@简要：
+ ***将先进先出队列所有节点转移至接收队列的尾部，
+ ***转移完成后，原先进先出队列变成空
+ *
+ *@参数：
+ *[fifo]：被转移的先进先出队列
+ *[recv_fifo]: 接收节点的先进先出队列
+ **********************************************************/
+static inline void fifo_nodes_transfer_to(fifo_t *fifo, fifo_t *recv_fifo)
+{
+    if (!fifo_is_empty(fifo))
+    {
+        recv_fifo->tail->next = fifo->list.next;
+        fifo->tail->next = &recv_fifo->list;
+        recv_fifo->tail = fifo->tail;
+
+        fifo_init(fifo);
+    }
 }
 
 #endif /* __LWES_FIFO_H__ */

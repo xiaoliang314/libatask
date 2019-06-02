@@ -174,7 +174,7 @@ static inline void _el_timer_schedule(void)
 
             if (timer->due <= nclk_now)
             {
-                fifo_foreach_safe_del_next(&dflt_el.timers, prev_node, &safe_node);
+                fifo_node_del_next_safe(&dflt_el.timers, prev_node, &safe_node);
 
                 el_event_post(TIMER_EVENT(timer));
             }

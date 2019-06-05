@@ -761,6 +761,37 @@ static inline void el_event_sync_post(event_t *e)
 }
 
 
+/*********************************************************
+*@brief:
+***Synchronously call this event with arguments
+*
+*@contract:
+***Cannot use null pointer
+*
+*@parameter:
+*[e]: the event of be call
+*[ecb_type]: 
+****The function type (signature) of the event callback, 
+****the callback function parameter list must be in the form of (void *, event_t *, ...)
+*[...]: The third and subsequent parameters of the event callback function
+*********************************************************/
+/*********************************************************
+*@简要：
+***带参数的方式同步触发这个事件
+*
+*@约定：
+***不能使用空指针
+*
+*@参数：
+*[e]：被调用的事件
+*[ecb_type]: 
+***事件回调的函数类型（签名）
+***回调函数参数列表必须形如(void *, event_t *, ...)格式
+*[...]: 传入事件回调函数的第3个及之后的参数
+**********************************************************/
+#define el_event_sync_post_with_args(e, ecb_type, ...) \
+    ((ecb_type)(e)->callback)((e)->context, (e), ##__VA_ARGS__)
+
 
 /*********************************************************
 *@brief:

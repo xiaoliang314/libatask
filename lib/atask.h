@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+#define CONFIG_NULL_CB  __el_defs_null_func
+
 #include "defs.h"
 #include "slist.h"
 #include "fifo.h"
@@ -56,7 +58,7 @@ extern "C" {
  ***
  ***若使用libatask作为最外部框架，则不需要配置此功能
  *********************************************************/
-#define CONFIG_EL_HAVE_SCHEDULE_PREPARE
+/* #define CONFIG_EL_HAVE_SCHEDULE_PREPARE */
 
 
 /*********************************************************
@@ -76,7 +78,21 @@ extern "C" {
  ***先处理4个本地积压事件再检查一次外部事件（即el_schedule返回）
  ***
  *********************************************************/
-#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   4
+#define CONFIG_EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   3
+
+
+/*********************************************************
+ *@description:
+ ***Define a module identifier, different modules will use different event loops,
+ ***In the case where multiple modules reference the libatask library,
+ ***Each module uses its own event loop to ensure no interference during operation and linking
+ *********************************************************
+ *@说明：
+ ***定义一个模块标识符，不同的模块将使用不同的事件循环，
+ ***在多个模块都引用了libatask库的情况下，
+ ***各模块使用各自的事件循环保证在运行和链接时不会发生干扰
+ *********************************************************/
+#define CONFIG_MOUDLE_ID
 
 
 /*********************************************************
@@ -531,8 +547,8 @@ enum
 
 /* The maximum number of events scheduled at once */
 /* 一次调度的最大事件个数 */
-#ifndef EL_ONCE_SCHEDULE_MAX_EVENT_COUNT
-#define EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   4
+#ifndef CONFIG_EL_ONCE_SCHEDULE_MAX_EVENT_COUNT
+#define CONFIG_EL_ONCE_SCHEDULE_MAX_EVENT_COUNT   3
 #endif /* EL_ONCE_SCHEDULE_MAX_EVENT_COUNT */
 
 typedef struct el_s
@@ -557,8 +573,10 @@ typedef struct el_s
     /* 定时器队列有元素标志位 */
     uint8_t timers_have;
 
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
     /* recursion schedule count */
     uint16_t recursion_schedule;
+#endif
 } el_t;
 
 
@@ -576,6 +594,8 @@ typedef struct el_s
 *@参数：
 *[el]：事件循环变量名，非地址
 *************************************************************/
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+
 #define EL_STATIC_INIT(el)                              \
 {                                                       \
     {                                                   \
@@ -589,6 +609,22 @@ typedef struct el_s
     0,0,0                                               \
 }
 
+#else
+
+#define EL_STATIC_INIT(el)                              \
+{                                                       \
+    {                                                   \
+        FIFO_STATIC_INIT((el).ready_groups[0]),         \
+        FIFO_STATIC_INIT((el).ready_groups[1]),         \
+        FIFO_STATIC_INIT((el).ready_groups[2]),         \
+        FIFO_STATIC_INIT((el).ready_groups[3])          \
+    },                                                  \
+    FIFO_STATIC_INIT((el).timers),                      \
+    0,                                                  \
+    0,0                                                 \
+}
+
+#endif
 
 /*********************************************************
 *@type description:
@@ -679,14 +715,52 @@ typedef struct timer_event_s
 ***全局变量声明
 *********************************************************/
 
+#define dflt_el dflt_el_m_##CONFIG_MOUDLE_ID
 /* default event loop object */
 /* 默认事件循环对象 */
 extern el_t dflt_el;
 
-/* highest priority ready group bitmap */
-/* 最高优先级就绪组位图 */
-extern const uint8_t priority_ready_bitmap[];
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
 
+#define el_schedule_prepare el_schedule_prepare_##CONFIG_MOUDLE_ID
+
+extern void el_schedule_prepare(void);
+
+#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
+
+
+/*********************************************************
+*@brief:
+***Check if the event is ready (will be triggered)
+*
+*@contract:
+***Cannot use null pointer
+*
+*@parameter:
+*[e]: an event
+*
+*@return value:
+*[true]: ready
+*[false]: not ready
+*********************************************************/
+/*********************************************************
+*@简要：
+***检查事件是否已经就绪(将被触发)
+*
+*@约定：
+***不能使用空指针
+*
+*@参数：
+*[e]：事件
+*
+*@返回值：
+*[true]：已就绪
+*[false]：未就绪
+**********************************************************/
+static inline bool el_event_is_ready(event_t *e)
+{
+    return e->is_ready != 0;
+}
 
 /*********************************************************
 *@description:
@@ -724,7 +798,45 @@ extern const uint8_t priority_ready_bitmap[];
 *[true]：提交成功
 *[false]：事件节点处于队列之中或者引用状态
 **********************************************************/
-bool el_event_post(event_t *e);
+static inline bool el_event_post(event_t *e)
+{
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+    uint8_t el_old_have_event;
+#endif
+    uint8_t ready_group = e->priority >> READY_GROUP_PRIORITY_SHIFT;
+
+    /* The event node must be in an idle state */
+    /* 事件节点必须处于空闲状态 */
+    if (slist_node_is_del(EVENT_NODE(e)))
+    {
+        /* Add events to the corresponding event group */
+        /* 添加事件到相应的事件组 */
+        event_fifo_priority_push(&dflt_el.ready_groups[ready_group], e);
+
+        /* set to ready state */
+        /* 设置为就绪态 */
+        e->is_ready = 1;
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+        el_old_have_event = el_have_imm_event();
+#endif
+
+        /* Update event group ready map */
+        /* 更新事件组就绪图 */
+        dflt_el.ready_map |= (1 << ready_group);
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+        if (!el_old_have_event)
+        {
+            _el_private_schedule_prepare_no_recursion();
+        }
+#endif
+
+        return true;
+    }
+
+    return false;
+}
 
 
 /*********************************************************
@@ -821,7 +933,30 @@ static inline void el_event_sync_post(event_t *e)
 *[true]：提交成功
 *[false]：事件节点处于队列之中或者引用状态
 **********************************************************/
-bool el_event_cancel(event_t *e);
+static inline bool el_event_cancel(event_t *e)
+{
+    uint8_t ready_group = e->priority >> READY_GROUP_PRIORITY_SHIFT;
+    fifo_t *ready_q = &dflt_el.ready_groups[ready_group];
+
+    /* Node is not idle that delete this from the event group */
+    /* 节点非空闲状态则从事件组中删除 */
+    if (!slist_node_is_del(EVENT_NODE(e))
+     && fifo_del_node(ready_q, EVENT_NODE(e)))
+    {
+        /* Update the ready map if the event group is empty */
+        /* 若事件组为空，则更新就绪图 */
+        if (fifo_is_empty(ready_q))
+        {
+            dflt_el.ready_map &= ~(1 << ready_group);
+        }
+
+        e->is_ready = 0;
+
+        return true;
+    }
+
+    return false;
+}
 
 
 /*********************************************************
@@ -854,19 +989,40 @@ bool el_event_cancel(event_t *e);
 *[true]：设置成功
 *[false]：事件未被提交
 **********************************************************/
-bool el_event_reset_priority(event_t *e, uint8_t new_priority);
+static inline bool el_event_reset_priority(event_t *e, uint8_t new_priority)
+{
+    uint8_t cur_group = e->priority >> READY_GROUP_PRIORITY_SHIFT;
+    uint8_t new_group = new_priority >> READY_GROUP_PRIORITY_SHIFT;
+    fifo_t *cur_ready_q = &dflt_el.ready_groups[cur_group];
+    fifo_t *new_ready_q = &dflt_el.ready_groups[new_group];
 
+    if (slist_node_is_del(EVENT_NODE(e)))
+    {
+        return false;
+    }
 
-/*********************************************************
-*@brief:
-***Check timers, 
-***and schedule the highest priority events in the event loop event list
-*********************************************************/
-/*********************************************************
-*@简要：
-***检查定时器、并调度事件循环事件列表中优先级最高的事件
-**********************************************************/
-time_nclk_t el_schedule(void);
+    if (cur_group == new_group)
+    {
+        return event_fifo_reset_priority(cur_ready_q, e, new_priority);
+    }
+    else
+    {
+        if (fifo_del_node(cur_ready_q, EVENT_NODE(e)))
+        {
+            if (fifo_is_empty(cur_ready_q))
+            {
+                dflt_el.ready_map &= ~(1 << cur_group);
+            }
+
+            event_fifo_priority_push(new_ready_q, e);
+            dflt_el.ready_map &= ~(1 << new_group);
+
+            return true;
+        }
+
+        return false;
+    }
+}
 
 
 /*********************************************************
@@ -899,7 +1055,53 @@ time_nclk_t el_schedule(void);
 *[true]：启动成功
 *[false]：定时器已启动或节点处于队列之中
 **********************************************************/
-bool el_timer_start_due(timer_event_t *timer, time_nclk_t due);
+static inline bool el_timer_start_due(timer_event_t *timer, time_nclk_t due)
+{
+    timer_event_t *find;
+    slist_node_t *prev_node;
+    slist_node_t *cur_node;
+
+    if (!slist_node_is_del(TIMER_NODE(timer)))
+    {
+        return false;
+    }
+
+    timer->due = due;
+
+    find = TIMER_OF_NODE(FIFO_TAIL(&dflt_el.timers));
+    if (fifo_is_empty(&dflt_el.timers)
+     || find->due <= timer->due)
+     {
+         fifo_push(&dflt_el.timers, TIMER_NODE(timer));
+     }
+     else
+     {
+         slist_foreach_record_prev(FIFO_LIST(&dflt_el.timers), cur_node, prev_node)
+         {
+             find = TIMER_OF_NODE(cur_node);
+             if (find->due > timer->due)
+             {
+                 fifo_node_insert_next(&dflt_el.timers, prev_node, TIMER_NODE(timer));
+                 break;
+             }
+         }
+     }
+
+     if (!dflt_el.timers_have || timer->due < dflt_el.due)
+     {
+        dflt_el.due = timer->due;
+        dflt_el.timers_have = 1;
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+         if (!el_have_imm_event())
+         {
+             _el_private_schedule_prepare_no_recursion();
+         }
+#endif
+     }
+
+     return true;
+}
 
 
 /*********************************************************
@@ -930,7 +1132,33 @@ bool el_timer_start_due(timer_event_t *timer, time_nclk_t due);
 *[true]：成功停止
 *[false]：定时器未启动
 **********************************************************/
-bool el_timer_stop(timer_event_t *timer);
+static inline bool el_timer_stop(timer_event_t *timer)
+{
+    if (slist_node_is_del(TIMER_NODE(timer)))
+    {
+        return false;
+    }
+
+    if (el_event_is_ready(TIMER_EVENT(timer)))
+    {
+        return el_event_cancel(TIMER_EVENT(timer));
+    }
+    else if (fifo_del_node(&dflt_el.timers, TIMER_NODE(timer)))
+    {
+        if (fifo_is_empty(&dflt_el.timers))
+        {
+            dflt_el.timers_have = 0;
+        }
+        else
+        {
+            dflt_el.due = TIMER_OF_NODE(FIFO_TOP(&dflt_el.timers))->due;
+        }
+
+        return true;
+    }
+
+    return false;
+}
 
 
 /*********************************************************
@@ -961,7 +1189,35 @@ bool el_timer_stop(timer_event_t *timer);
 *[true]：触发成功、已启动的定时操作将失效
 *[false]：定时器节点处于其他队列之中(非事件循环事件列表和事件循环定时器列表)
 **********************************************************/
-bool el_timer_trigger(timer_event_t *timer);
+static inline bool el_timer_trigger(timer_event_t *timer)
+{
+    if (el_event_is_ready(TIMER_EVENT(timer)))
+    {
+        return true;
+    }
+    else
+    {
+        if (!slist_node_is_del(TIMER_NODE(timer)))
+        {
+            if (!fifo_del_node(&dflt_el.timers, TIMER_NODE(timer)))
+            {
+                return false;
+            }
+
+            if (fifo_is_empty(&dflt_el.timers))
+            {
+                dflt_el.timers_have = 0;
+            }
+            else
+            {
+                dflt_el.due = TIMER_OF_NODE(FIFO_TOP(&dflt_el.timers))->due;
+            }
+        }
+
+        timer->due = 0;
+        return el_event_post(TIMER_EVENT(timer));
+    }
+}
 
 
 /*********************************************************
@@ -971,70 +1227,6 @@ bool el_timer_trigger(timer_event_t *timer);
 *@说明：
 ***API声明带实现
 *********************************************************/
-
-
-/*********************************************************
-*@brief:
-***Check if the event is ready (will be triggered)
-*
-*@contract:
-***Cannot use null pointer
-*
-*@parameter:
-*[e]: an event
-*
-*@return value:
-*[true]: ready
-*[false]: not ready
-*********************************************************/
-/*********************************************************
-*@简要：
-***检查事件是否已经就绪(将被触发)
-*
-*@约定：
-***不能使用空指针
-*
-*@参数：
-*[e]：事件
-*
-*@返回值：
-*[true]：已就绪
-*[false]：未就绪
-**********************************************************/
-static inline bool el_event_is_ready(event_t *e)
-{
-    return e->is_ready != 0;
-}
-
-
-/*********************************************************
-*@brief:
-***Get the highest scheduling priority in the event loop
-*
-*@return: Current highest scheduling priority in the event loop
-*********************************************************/
-/*********************************************************
-*@简要：
-***获取事件循环中当前的最高调度优先级
-*
-*@返回：事件循环中当前的最高调度优先级
-**********************************************************/
-static inline uint8_t el_highest_ready_priority_get(void)
-{
-    uint8_t highest_priority = 0;
-    uint8_t ready_group;
-
-    if (dflt_el.ready_map)
-    {
-        ready_group = priority_ready_bitmap[dflt_el.ready_map];
-
-        highest_priority =
-            EVENT_OF_NODE(FIFO_TOP(&dflt_el.ready_groups[ready_group]))->priority;
-    }
-
-    return highest_priority;
-}
-
 
 /*********************************************************
 *@brief:
@@ -2712,6 +2904,157 @@ static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afun
         bpd = TASK_BPD(task);                                       \
         bpd_restore_point(bp_num):;                                 \
     } while (0)
+
+/*********************************************************
+*@description:
+***private functions
+*********************************************************
+*@说明：
+***私有函数
+*********************************************************/
+
+static inline uint8_t _el_private_highest_ready_group_get(uint8_t ready_map)
+{
+    static const uint8_t priority_ready_bitmap[(1 << READY_GROUP_COUNT)] =
+    {
+    /*     000, 001, 010, 011, 100, 101, 110, 111 */
+    /* 0 */0xFF, 0,   1,   1,   2,   2,   2,   2,
+    /* 1 */3,    3,   3,   3,   3,   3,   3,   3
+    };
+
+    return priority_ready_bitmap[dflt_el.ready_map];
+}
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+
+/* Prepare event scheduling, in the case of non-recursive reentry */
+/* 准备事件调度，在非递归重入的情况下 */
+static inline void _el_private_schedule_prepare_no_recursion(void)
+{
+    if (dflt_el.recursion_schedule == 0)
+    {
+        el_schedule_prepare();
+    }
+}
+#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
+
+
+/* Scheduling an event */
+/* 调度一个事件 */
+static inline void _el_private_event_schedule(void)
+{
+    event_t *e;
+    fifo_t *ready_q;
+    uint8_t ready_group = _el_private_highest_ready_group_get(dflt_el.ready_map);
+
+    if (ready_group < READY_GROUP_COUNT)
+    {
+        ready_q = &dflt_el.ready_groups[ready_group];
+
+        e = event_fifo_priority_pop(ready_q);
+        if (fifo_is_empty(ready_q))
+        {
+            dflt_el.ready_map &= ~(1 << ready_group);
+        }
+
+        e->is_ready = 0;
+        e->callback(e->context, e);
+    }
+}
+
+/* Timer timeout check */
+/* 定时器超时检查 */
+static inline void _el_private_timer_timeout_check(void)
+{
+    time_nclk_t nclk_now;
+    timer_event_t *timer;
+    slist_node_t *cur_node;
+    slist_node_t *prev_node;
+    slist_node_t *safe_node;
+
+    if (dflt_el.timers_have && dflt_el.due <= (nclk_now = time_nclk_get()))
+    {
+        dflt_el.timers_have  = 0;
+
+        slist_foreach_record_prev_safe(FIFO_LIST(&dflt_el.timers), cur_node, prev_node, safe_node)
+        {
+            timer = TIMER_OF_NODE(cur_node);
+
+            if (timer->due <= nclk_now)
+            {
+                fifo_node_del_next_safe(&dflt_el.timers, prev_node, &safe_node);
+
+                el_event_post(TIMER_EVENT(timer));
+            }
+            else
+            {
+                dflt_el.timers_have = 1;
+                dflt_el.due = timer->due;
+
+                break;
+            }
+        }
+    }
+}
+
+
+/*********************************************************
+*@brief:
+***Get the highest scheduling priority in the event loop
+*
+*@return: Current highest scheduling priority in the event loop
+*********************************************************/
+/*********************************************************
+*@简要：
+***获取事件循环中当前的最高调度优先级
+*
+*@返回：事件循环中当前的最高调度优先级
+**********************************************************/
+static inline uint8_t el_highest_ready_priority_get(void)
+{
+    uint8_t highest_priority = 0;
+    uint8_t ready_group = _el_private_highest_ready_group_get(dflt_el.ready_map);
+
+    if (ready_group < READY_GROUP_COUNT)
+    {
+        highest_priority =
+            EVENT_OF_NODE(FIFO_TOP(&dflt_el.ready_groups[ready_group]))->priority;
+    }
+
+    return highest_priority;
+}
+
+
+/*********************************************************
+*@brief:
+***Check timers, 
+***and schedule the highest priority events in the event loop event list
+*********************************************************/
+/*********************************************************
+*@简要：
+***检查定时器、并调度事件循环事件列表中优先级最高的事件
+**********************************************************/
+static inline time_nclk_t el_schedule(void)
+{
+    int max_schedule_events = CONFIG_EL_ONCE_SCHEDULE_MAX_EVENT_COUNT;
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+    dflt_el.recursion_schedule++;
+#endif
+
+    _el_private_timer_timeout_check();
+
+    while (el_have_imm_event() && max_schedule_events--)
+    {
+        _el_private_event_schedule();
+    }
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+    dflt_el.recursion_schedule--;
+#endif
+
+    return el_have_imm_event() ? 0 : el_timer_recent_due_get();
+}
 
 
 /********************************************************

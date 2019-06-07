@@ -60,7 +60,3 @@ time_nclk_t time_us_to_nclk(time_us_t time_us)
 
     return (time_nclk_t)((double)time_us * freq.QuadPart / 1000000);
 }
-
-void el_schedule_prepare(void)
-{
-}

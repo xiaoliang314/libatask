@@ -38,7 +38,3 @@ time_nclk_t time_us_to_nclk(time_us_t time_us)
 {
     return time_us * 2048;
 }
-
-void el_schedule_prepare(void)
-{
-}

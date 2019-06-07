@@ -624,6 +624,8 @@ void http_client_requst_task_handler(task_t *task, event_t *ev, SOCKET _cli_sock
             closesocket(vars->cli_sock);
             bpd_break;
         }
+
+        buf_end = vars->buf;
     }
 
     /* Does not support non-GET and non-POST methods */

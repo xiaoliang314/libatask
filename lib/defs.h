@@ -211,10 +211,12 @@ extern "C" {
 #define NULL 0
 #endif
 
+#ifdef CONFIG_NULL_CB
 /* empty callback function */
 /* 空回调函数 */
-extern void __defs_null_func(void);
-#define NULL_CB __defs_null_func
+extern void CONFIG_NULL_CB(void);
+#define NULL_CB CONFIG_NULL_CB
+#endif
 
 
 /***************************************************

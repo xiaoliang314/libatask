@@ -92,7 +92,7 @@ extern "C" {
  ***在多个模块都引用了libatask库的情况下，
  ***各模块使用各自的事件循环保证在运行和链接时不会发生干扰
  *********************************************************/
-#define CONFIG_MOUDLE_ID
+#define CONFIG_EL_MOUDLE_ID
 
 
 /*********************************************************
@@ -715,14 +715,14 @@ typedef struct timer_event_s
 ***全局变量声明
 *********************************************************/
 
-#define dflt_el dflt_el_m_##CONFIG_MOUDLE_ID
+#define dflt_el dflt_el_m_##CONFIG_EL_MOUDLE_ID
 /* default event loop object */
 /* 默认事件循环对象 */
 extern el_t dflt_el;
 
 #ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
 
-#define el_schedule_prepare el_schedule_prepare_##CONFIG_MOUDLE_ID
+#define el_schedule_prepare el_schedule_prepare_##CONFIG_EL_MOUDLE_ID
 
 extern void el_schedule_prepare(void);
 

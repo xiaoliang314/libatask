@@ -92,8 +92,18 @@ extern "C" {
  ***在多个模块都引用了libatask库的情况下，
  ***各模块使用各自的事件循环保证在运行和链接时不会发生干扰
  *********************************************************/
-#define CONFIG_EL_MOUDLE_ID
+#define CONFIG_EL_MOUDLE_ID 
 
+
+/*********************************************************
+ *@description:
+ *** Concatenate two macros
+ *********************************************************
+ *@说明：
+ *** 联接两个宏
+ *********************************************************/
+#define EL_MACRO_CONCAT(x, y)    __EL_MACRO_CONCAT(x, y)
+#define __EL_MACRO_CONCAT(x, y)    x##y
 
 /*********************************************************
  *@type description:
@@ -715,18 +725,97 @@ typedef struct timer_event_s
 ***全局变量声明
 *********************************************************/
 
-#define dflt_el dflt_el_m_##CONFIG_EL_MOUDLE_ID
+#define dflt_el EL_MACRO_CONCAT(dflt_el_m_, CONFIG_EL_MOUDLE_ID)
 /* default event loop object */
 /* 默认事件循环对象 */
 extern el_t dflt_el;
 
 #ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
 
-#define el_schedule_prepare el_schedule_prepare_##CONFIG_EL_MOUDLE_ID
+#define el_schedule_prepare EL_MACRO_CONCAT(el_schedule_prepare_, CONFIG_EL_MOUDLE_ID)
 
 extern void el_schedule_prepare(void);
 
 #endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
+
+
+static inline uint8_t _el_private_highest_ready_group_get(uint8_t ready_map)
+{
+    static const uint8_t priority_ready_bitmap[(1 << READY_GROUP_COUNT)] =
+    {
+    /*     000, 001, 010, 011, 100, 101, 110, 111 */
+    /* 0 */0xFF, 0,   1,   1,   2,   2,   2,   2,
+    /* 1 */3,    3,   3,   3,   3,   3,   3,   3
+    };
+
+    return priority_ready_bitmap[dflt_el.ready_map];
+}
+
+#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
+
+/* Prepare event scheduling, in the case of non-recursive reentry */
+/* 准备事件调度，在非递归重入的情况下 */
+static inline void _el_private_schedule_prepare_no_recursion(void)
+{
+    if (dflt_el.recursion_schedule == 0)
+    {
+        el_schedule_prepare();
+    }
+}
+#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
+
+
+/*********************************************************
+*@description:
+***API declaration with implementation
+*********************************************************
+*@说明：
+***API声明带实现
+*********************************************************/
+
+/*********************************************************
+*@brief:
+***Check if there is a timer in the event loop
+*@return value:
+*[true]: There are timers in the event loop
+*[false]: There is no timer in the event loop
+*********************************************************/
+/*********************************************************
+*@简要：
+***检查事件循环中是否存在定时器
+*@返回值：
+*[true]：事件循环中有定时器
+*[false]：事件循环中没有定时器
+**********************************************************/
+static inline bool el_have_timers(void)
+{
+    return dflt_el.timers_have;
+}
+
+
+/*********************************************************
+*@brief:
+***Check if there are any events in the event loop
+***that can be scheduled immediately.
+***Will check the event loop event list for events
+*
+*@return value:
+*[true]: There are events that can be scheduled immediately
+*[false]: There are no events that can be scheduled immediately
+*********************************************************/
+/*********************************************************
+*@简要：
+***检查事件循环中是否有能被立即调度的事件
+***将检查事件循环事件列表是否存在事件
+*
+*@返回值：
+*[true]：存在能被立即调度的事件
+*[false]：不存在能被立即调度的事件
+**********************************************************/
+static inline uint16_t el_have_imm_event(void)
+{
+    return dflt_el.ready_map;
+}
 
 
 /*********************************************************
@@ -837,15 +926,6 @@ static inline bool el_event_post(event_t *e)
 
     return false;
 }
-
-
-/*********************************************************
-*@description:
-***API declaration
-*********************************************************
-*@说明：
-***API声明
-*********************************************************/
 
 /*********************************************************
 *@brief:
@@ -1221,14 +1301,6 @@ static inline bool el_timer_trigger(timer_event_t *timer)
 
 
 /*********************************************************
-*@description:
-***API declaration with implementation
-*********************************************************
-*@说明：
-***API声明带实现
-*********************************************************/
-
-/*********************************************************
 *@brief:
 ***Returns the time of timer expires in the event loop
 *@return value:
@@ -1245,51 +1317,6 @@ static inline bool el_timer_trigger(timer_event_t *timer)
 static inline time_nclk_t el_timer_recent_due_get(void)
 {
     return dflt_el.timers_have ? dflt_el.due : 0xFFFFFFFFFFFFFFFFUL;
-}
-
-
-/*********************************************************
-*@brief:
-***Check if there is a timer in the event loop
-*@return value:
-*[true]: There are timers in the event loop
-*[false]: There is no timer in the event loop
-*********************************************************/
-/*********************************************************
-*@简要：
-***检查事件循环中是否存在定时器
-*@返回值：
-*[true]：事件循环中有定时器
-*[false]：事件循环中没有定时器
-**********************************************************/
-static inline bool el_have_timers(void)
-{
-    return dflt_el.timers_have;
-}
-
-
-/*********************************************************
-*@brief:
-***Check if there are any events in the event loop
-***that can be scheduled immediately.
-***Will check the event loop event list for events
-*
-*@return value:
-*[true]: There are events that can be scheduled immediately
-*[false]: There are no events that can be scheduled immediately
-*********************************************************/
-/*********************************************************
-*@简要：
-***检查事件循环中是否有能被立即调度的事件
-***将检查事件循环事件列表是否存在事件
-*
-*@返回值：
-*[true]：存在能被立即调度的事件
-*[false]：不存在能被立即调度的事件
-**********************************************************/
-static inline uint16_t el_have_imm_event(void)
-{
-    return dflt_el.ready_map;
 }
 
 
@@ -2912,32 +2939,6 @@ static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afun
 *@说明：
 ***私有函数
 *********************************************************/
-
-static inline uint8_t _el_private_highest_ready_group_get(uint8_t ready_map)
-{
-    static const uint8_t priority_ready_bitmap[(1 << READY_GROUP_COUNT)] =
-    {
-    /*     000, 001, 010, 011, 100, 101, 110, 111 */
-    /* 0 */0xFF, 0,   1,   1,   2,   2,   2,   2,
-    /* 1 */3,    3,   3,   3,   3,   3,   3,   3
-    };
-
-    return priority_ready_bitmap[dflt_el.ready_map];
-}
-
-#ifdef CONFIG_EL_HAVE_SCHEDULE_PREPARE
-
-/* Prepare event scheduling, in the case of non-recursive reentry */
-/* 准备事件调度，在非递归重入的情况下 */
-static inline void _el_private_schedule_prepare_no_recursion(void)
-{
-    if (dflt_el.recursion_schedule == 0)
-    {
-        el_schedule_prepare();
-    }
-}
-#endif /* CONFIG_EL_HAVE_SCHEDULE_PREPARE */
-
 
 /* Scheduling an event */
 /* 调度一个事件 */

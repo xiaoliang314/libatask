@@ -386,8 +386,8 @@ static inline void *memset_spare(void *_mem, uint8_t ch, size_t size)
     {
         set32.m16[0].m8[0].m4[0] = 0x01010101 * ch;
         set32.m16[0].m8[0].m4[1] = set32.m16[0].m8[0].m4[0];
-        set32.m16[0].m8[0] = set32.m16[0].m8[1];
-        set32.m16[0] = set32.m16[1];
+        set32.m16[0].m8[1] = set32.m16[0].m8[0];
+        set32.m16[1] = set32.m16[0];
 
         while (mem < set_end)
         {
@@ -498,9 +498,7 @@ static inline int32_t memcmp_spare(const void *_m1, const void *_m2,
                         {
                             return __MEM4(m1) - __MEM4(m2);
                         }
-                        m1 += 4;
-                        m2 += 4;
-                        return __MEM4(m1) - __MEM4(m2);
+                        return __MEM4(m1 + 4) - __MEM4(m2 + 4);
                     }
                     m1 += 8;
                     m2 += 8;

@@ -2146,82 +2146,87 @@ static inline uint32_t slab_blk_size_get(slab_t *slab)
 
 
 /*********************************************
- *@brief: create a slab allocator using buffer initialization
+ *@brief: initialize a slab allocator using buffer initialization
  *
  *@parameter:
+ *[slab] slab allocator
  *[buff] buffer
  *[blk_nums] total number of blocks
  *[blk_size] the size of each block
- *
- *@return: slab allocator
  *********************************************
  */
 /*********************************************
- *@简要：使用buffer初始化创建一个slab分配器
+ *@简要：使用buffer初始化一个slab分配器
  *
  *@参数：
+ *[slab]	 slab
  *[buff]     buffer
- *[blk_nums] 总块数
+ *[blk_nums] buffer大小
  *[blk_size] 每块的大小
- *
- *@返回：slab分配器
  *********************************************
  */
-static inline slab_t *slab_create(void *buff, uint32_t buf_size, uint32_t blk_size)
+static inline void slab_init(slab_t *slab, void *buff, uint32_t buf_size, uint32_t blk_size)
 {
     uint8_t *align_buff;
-    slab_t *slab;
     uint32_t size;
     uint8_t *free_node;
     uint32_t i;
 
-    size = buf_size;
+    /* pointer alignment */
+    /* 指针向上取整对齐 */
     align_buff = (uint8_t *)ALIGN_UP((size_t)buff);
-    slab = (slab_t *)align_buff;
 
-    /* ensure sufficient space */
-    /* 确保空间足够 */
-    if (size >= align_buff - (uint8_t *)buff + sizeof(*slab))
-    {
-        /* calculate the available size */
-        /* 计算可用的size */
-        size -= (uint32_t)(align_buff - (uint8_t *)buff + sizeof(*slab));
+    /* size alignment */
+    /* 计算对齐后，可用size */
+    size = ALIGN_DOWN((uint8_t *)buff + buf_size - align_buff);
 
-        /* blk_size cpu-byte alignment */
-        /* blk_size CPU字节对齐 */
-        slab->blk_size = (uint32_t)ALIGN_UP(blk_size);
+	/* blk_size cpu-byte alignment */
+	/* blk_size CPU字节对齐 */
+	slab->blk_size = (uint32_t)ALIGN_UP(blk_size);
 
-        /* calculate the number of total blocks */
-        /* 重新计算总的块数 */
-        slab->blk_nums = size / slab->blk_size;
+	/* calculate the number of total blocks */
+	/* 重新计算总的块数 */
+	slab->blk_nums = size / slab->blk_size;
 
-        slab->nums_used = 0;
+	slab->nums_used = 0;
 
-        /* record buff */
-        /* 记录buff */
-        slab->buff = (uint8_t *)buff; /* for C++ */
+	/* record buff */
+	/* 记录buff */
+	slab->buff = align_buff;
 
-        fifo_init(&slab->notify_q);
+	fifo_init(&slab->notify_q);
 
-        /* initialize the free list */
-        /* 初始化空闲块链表 */
-        slist_init((slist_t *)&slab->free_list);
+	/* initialize the free list */
+	/* 初始化空闲块链表 */
+	slist_init((slist_t *)&slab->free_list);
 
-        /* generates a free block list */
-        /* 生成空闲块链表 */
-        free_node = align_buff + sizeof(*slab);
-        for (i = 0; i < slab->blk_nums; i++)
-        {
-            slist_node_insert_next(SLIST_HEAD(&slab->free_list), (slist_node_t *)free_node);
-            free_node += slab->blk_size;
-        }
-
-        return slab;
-    }
-
-    return NULL;
+	/* generates a free block list */
+	/* 生成空闲块链表 */
+	free_node = align_buff;
+	for (i = 0; i < slab->blk_nums; i++)
+	{
+		slist_node_insert_next(SLIST_HEAD(&slab->free_list), (slist_node_t *)free_node);
+		free_node += slab->blk_size;
+	}
 }
 
+/*********************************************
+ *@brief: initialize a slab allocator using array initialization
+ *
+ *@parameter:
+ *[slab] slab allocator
+ *[arr] array
+ *********************************************
+ */
+/*********************************************
+ *@简要：使用数组初始化一个slab分配器
+ *
+ *@参数：
+ *[slab]	slab
+ *[arr]     数组
+ *********************************************
+ */
+#define slab_init_by_arr(slab, arr)		slab_init((slab), (arr), sizeof(arr), sizeof((arr)[0]))
 
 /*********************************************
  *@brief: the slab allocator allocate memory block
@@ -2409,9 +2414,9 @@ static inline bool slab_wait_cancel(slab_t *slab, slab_alloc_event_t *alloc_even
  *********************************************************/
 struct task_cur_ctx_s
 {
-    uint32_t stack_used;
     uint8_t yield_state;
     uint8_t bp;
+    uint16_t stack_used;
 };
 
 struct task_stack_s
@@ -2510,7 +2515,7 @@ typedef void (*task_asyn_routine_t)(struct task_s *, event_t *);
  *[priority]：任务事件的优先级
  *************************************************************/
 #define TASK_DEFINE(_name, stack_size, priority)                    \
-    uint8_t _name##_stack_buf[stack_size];                          \
+    uint32_t _name##_stack_buf[(stack_size + 3) / 4];               \
     task_t  _name = TASK_STATIC_INIT(_name,                         \
                                      _name##_stack_buf,             \
                                      (stack_size),                  \
@@ -2538,7 +2543,7 @@ typedef void (*task_asyn_routine_t)(struct task_s *, event_t *);
  *[priority]：任务事件的优先级
  *************************************************************/
 #define TASK_DEFINE_STATIC(_name, stack_size, priority)             \
-    static uint8_t _name##_stack_buf[stack_size];                   \
+    static uint32_t _name##_stack_buf[(stack_size + 3) / 4];        \
     static task_t  _name = TASK_STATIC_INIT(_name,                  \
                                             _name##_stack_buf,      \
                                             (stack_size),           \
@@ -2692,13 +2697,8 @@ static inline void *task_asyn_vars_get(task_t *task, size_t vars_size)
  **********************************************************/
 static inline void task_asyn_return(task_t *task)
 {
-    uint8_t yield_state;
-
     if (task->stack.cur >= task->stack.start + TASK_STACK_CTX_SIZE)
     {
-        /* Record yielded state */
-        /* 记下是否yield过状态 */
-        yield_state = task->cur_ctx.yield_state;
         /* Restore caller context information and event callbacks */
         /* 恢复调用者上下文信息及事件回调 */
         task->stack.cur -= TASK_STACK_CTX_SIZE;
@@ -2708,7 +2708,7 @@ static inline void task_asyn_return(task_t *task)
 
         TASK_ASSERT(task->stack.cur >= task->stack.start && task->stack.cur <= task->stack.end);
 
-        if (yield_state)
+        if (task->cur_ctx.yield_state)
         {
             /* Immediate return to the caller */
             /* 立即返回调用者 */
@@ -2866,13 +2866,14 @@ static inline bool task_end_wait_cancel(task_t *task, event_t *task_end_notify_e
  *[task]：任务对象
  *[afunc]：被调用的异步函数
  *************************************************************/
-static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afunc)
+static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afunc, void **pbpd)
 {
     TASK_ASSERT(task->stack.cur + task->cur_ctx.stack_used + TASK_STACK_CTX_SIZE <= task->stack.end);
 
     /* Save current context information and event callback */
     /* 保存当前上下文信息以及事件回调 */
     task->stack.cur += task->cur_ctx.stack_used;
+    *pbpd = task->stack.cur;
     *(struct task_cur_ctx_s *)task->stack.cur = task->cur_ctx;
     *(event_cb *)(task->stack.cur + sizeof(struct task_cur_ctx_s)) = EVENT_CALLBACK(&task->event);
     task->stack.cur += TASK_STACK_CTX_SIZE;
@@ -2917,19 +2918,18 @@ static inline void task_asyn_call_prepare(task_t *task, task_asyn_routine_t afun
  *[afunc]：被调用的异步函数，异步函数应该被声明为 void func(task_t *task, event_t *ev, 参数1, 参数2..)等格式
  *[...]：被调用的异步函数的第二个之后的参数
  **********************************************************/
-#define task_bpd_asyn_call(bp_num, task, afunc, ...)                \
-    do {                                                            \
-        bpd_set(bp_num);                                            \
-        *(void **)&bpd = (void *)task->stack.cur;                   \
-        task_asyn_call_prepare((task), (task_asyn_routine_t)afunc); \
-        afunc((task), (event_t *)NULL, ##__VA_ARGS__);              \
-        if ((void *)bpd != (void *)task->stack.cur)                 \
-        {                                                           \
-            task->cur_ctx.yield_state = 1;                          \
-            return ;                                                \
-        }                                                           \
-        bpd = TASK_BPD(task);                                       \
-        bpd_restore_point(bp_num):;                                 \
+#define task_bpd_asyn_call(bp_num, task, afunc, ...)                					\
+    do {                                                            					\
+        bpd_set(bp_num);                                            					\
+        task_asyn_call_prepare((task), (task_asyn_routine_t)afunc, (void **)&(bpd));	\
+        afunc((task), (event_t *)NULL, ##__VA_ARGS__);              					\
+        if ((uint8_t *)(bpd) != (task->stack.cur + task->cur_ctx.stack_used))			\
+        {                                                           					\
+            *(uint8_t *)(bpd) = 1;                          							\
+            return ;                                                					\
+        }                                                           					\
+        (bpd) = TASK_BPD(task);                                       					\
+        bpd_restore_point(bp_num):;                                 					\
     } while (0)
 
 /*********************************************************
